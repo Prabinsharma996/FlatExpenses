@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookStatus {
+  OPEN
+  CLOSED
+}
+
+enum SettlementStatus {
+  PENDING
+  PAID
+}
+
+enum FlatGroupType {
+  FLAT
+  TRIP
+  PARTY
+  OFFICE
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  isGuest      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  flatsAdmin    Flat[]         @relation("FlatAdmin")
+  flatMembers   FlatMember[]
+  booksCreated  Book[]         @relation("BookCreator")
+  expensesPaid  Expense[]      @relation("ExpensePayer")
+  expensesAdded Expense[]      @relation("ExpenseAdder")
+  expenseSplits ExpenseSplit[]
+  settlementsFrom Settlement[] @relation("SettlementFrom")
+  settlementsTo   Settlement[] @relation("SettlementTo")
+  pollsCreated  Poll[]         @relation("PollCreator")
+  pollVotes     PollVote[]     @relation("PollVoter")
+}
+
+model Flat {
+  id         Int           @id @default(autoincrement())
+  name       String
+  inviteCode String        @unique
+  adminId    Int
+  admin      User          @relation("FlatAdmin", fields: [adminId], references: [id])
+  groupType  FlatGroupType @default(FLAT)
+  createdAt  DateTime      @default(now())
+
+  members FlatMember[]
+  books   Book[]
+  polls   Poll[]
+}
+
+model FlatMember {
+  id       Int      @id @default(autoincrement())
+  flatId   Int
+  userId   Int
+  joinedAt DateTime @default(now())
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([flatId, userId])
+}
+
+model Book {
+  id        Int        @id @default(autoincrement())
+  flatId    Int
+  name      String
+  status    BookStatus @default(OPEN)
+  createdBy Int
+  createdAt DateTime   @default(now())
+  closedAt  DateTime?
+
+  flat        Flat         @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  creator     User         @relation("BookCreator", fields: [createdBy], references: [id])
+  expenses    Expense[]
+  settlements Settlement[]
+}
+
+model Expense {
+  id         Int      @id @default(autoincrement())
+  bookId     Int
+  paidById   Int
+  addedById  Int
+  amount     Decimal  @db.Decimal(10, 2)
+  category   String
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  book    Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  paidBy  User           @relation("ExpensePayer", fields: [paidById], references: [id])
+  addedBy User           @relation("ExpenseAdder", fields: [addedById], references: [id])
+  splits  ExpenseSplit[]
+}
+
+model ExpenseSplit {
+  id          Int     @id @default(autoincrement())
+  expenseId   Int
+  userId      Int
+  shareAmount Decimal @db.Decimal(10, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+}
+
+model Settlement {
+  id         Int              @id @default(autoincrement())
+  bookId     Int
+  fromUserId Int
+  toUserId   Int
+  amount     Decimal          @db.Decimal(10, 2)
+  status     SettlementStatus @default(PENDING)
+  paidAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  book     Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  fromUser User @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  toUser   User @relation("SettlementTo", fields: [toUserId], references: [id])
+}
+
+model Poll {
+  id        Int       @id @default(autoincrement())
+  flatId    Int
+  question  String
+  createdBy Int
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  flat    Flat         @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  creator User         @relation("PollCreator", fields: [createdBy], references: [id])
+  options PollOption[]
+  votes   PollVote[]
+}
+
+model PollOption {
+  id     Int    @id @default(autoincrement())
+  pollId Int
+  label  String
+
+  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+}
+
+model PollVote {
+  id       Int      @id @default(autoincrement())
+  pollId   Int
+  optionId Int
+  userId   Int
+  votedAt  DateTime @default(now())
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation("PollVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+}
