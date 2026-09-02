@@ -21,7 +21,11 @@ export default function GlassCard({ children, style, strong = false, padded = tr
         {
           backgroundColor: strong ? colors.accentSoft : colors.card,
           borderColor: strong ? colors.accentBorder : colors.cardBorder,
-          shadowOpacity: mode === "dark" ? 0 : 0.05,
+          // `strong` cards have a translucent tinted fill, so a shadow drawn
+          // beneath would bleed through and muddy the color — skip it and
+          // rely on the border for definition instead.
+          shadowOpacity: strong ? 0 : mode === "dark" ? 0 : 0.05,
+          elevation: strong ? 0 : 1,
         },
         padded && styles.padded,
         style,
@@ -39,7 +43,6 @@ const styles = StyleSheet.create({
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 16,
-    elevation: 1,
   },
   padded: { padding: 18 },
 });
