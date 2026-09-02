@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -28,6 +28,7 @@ export default function ExpensesTabScreen() {
   const [flat, setFlat] = useState<Flat | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -66,12 +67,16 @@ export default function ExpensesTabScreen() {
   }
 
   function handleAdd() {
-    const openBook = books.find((b) => b.status === "OPEN");
-    if (!openBook) {
+    const openBooks = books.filter((b) => b.status === "OPEN");
+    if (openBooks.length === 0) {
       navigation.navigate("CreateBook", { flatId });
       return;
     }
-    navigation.navigate("AddExpense", { bookId: openBook.id, flatId });
+    const targetBookId = selectedBookId && openBooks.some((b) => b.id === selectedBookId)
+      ? selectedBookId
+      : openBooks[0].id;
+
+    navigation.navigate("AddExpense", { bookId: targetBookId, flatId });
   }
 
   const categoryOptions = useMemo(() => {
@@ -87,6 +92,7 @@ export default function ExpensesTabScreen() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return expenses.filter((e) => {
+      if (selectedBookId !== null && e.bookId !== selectedBookId) return false;
       if (categoryFilter.length > 0 && !categoryFilter.includes(e.category)) return false;
       if (paidByFilter.length > 0 && !paidByFilter.includes(e.paidById)) return false;
       if (addedByFilter.length > 0 && !addedByFilter.includes(e.addedById)) return false;
@@ -96,17 +102,26 @@ export default function ExpensesTabScreen() {
       }
       return true;
     });
-  }, [expenses, search, categoryFilter, paidByFilter, addedByFilter]);
+  }, [expenses, selectedBookId, search, categoryFilter, paidByFilter, addedByFilter]);
 
   const filteredTotal = useMemo(() => {
     return filtered.reduce((sum, e) => sum + Number(e.amount), 0);
   }, [filtered]);
 
   const hasActiveFilters =
+    selectedBookId !== null ||
     search.trim() !== "" ||
     categoryFilter.length > 0 ||
     paidByFilter.length > 0 ||
     addedByFilter.length > 0;
+
+  function clearAllFilters() {
+    setSelectedBookId(null);
+    setSearch("");
+    setCategoryFilter([]);
+    setPaidByFilter([]);
+    setAddedByFilter([]);
+  }
 
   function handleDeleteExpense(expenseId: number) {
     Alert.alert("Delete Expense?", "Are you sure you want to remove this expense?", [
@@ -136,6 +151,53 @@ export default function ExpensesTabScreen() {
         </View>
         <GlassButton label="Add" icon="＋" onPress={handleAdd} style={styles.addBtn} />
       </View>
+
+      {/* ── Expense Book Filter Selector ── */}
+      {books.length > 0 && (
+        <View style={styles.bookSelectorWrapper}>
+          <Text style={[styles.bookSelectorLabel, { color: colors.textSecondary }]}>CHOOSE EXPENSE BOOK:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookChipsRow}>
+            <TouchableOpacity
+              style={[
+                styles.bookChip,
+                { backgroundColor: selectedBookId === null ? colors.accent : colors.card, borderColor: colors.cardBorder },
+              ]}
+              onPress={() => setSelectedBookId(null)}
+              activeOpacity={0.8}
+            >
+              <Feather name="book-open" size={13} color={selectedBookId === null ? colors.onAccent : colors.textPrimary} />
+              <Text style={[styles.bookChipText, { color: selectedBookId === null ? colors.onAccent : colors.textPrimary }]}>
+                All Books ({books.length})
+              </Text>
+            </TouchableOpacity>
+
+            {books.map((b) => {
+              const active = selectedBookId === b.id;
+              const isOpen = b.status === "OPEN";
+              return (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[
+                    styles.bookChip,
+                    { backgroundColor: active ? colors.accent : colors.card, borderColor: colors.cardBorder },
+                  ]}
+                  onPress={() => setSelectedBookId(b.id)}
+                  activeOpacity={0.8}
+                >
+                  <Feather
+                    name={isOpen ? "book" : "lock"}
+                    size={13}
+                    color={active ? colors.onAccent : isOpen ? colors.accent : colors.textSecondary}
+                  />
+                  <Text style={[styles.bookChipText, { color: active ? colors.onAccent : colors.textPrimary }]}>
+                    {b.name} {isOpen ? "" : "(Closed)"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* ── Search Bar ── */}
       <View style={styles.searchRow}>
@@ -204,6 +266,13 @@ export default function ExpensesTabScreen() {
           {/* Active Filter Badges */}
           {hasActiveFilters && (
             <View style={styles.activePillsContainer}>
+              {selectedBookId !== null && (
+                <View style={[styles.activePill, { backgroundColor: colors.accentSoft }]}>
+                  <Text style={[styles.activePillText, { color: colors.accent }]}>
+                    Book: {books.find((b) => b.id === selectedBookId)?.name}
+                  </Text>
+                </View>
+              )}
               {paidByFilter.length > 0 && (
                 <View style={[styles.activePill, { backgroundColor: colors.input }]}>
                   <Text style={[styles.activePillText, { color: colors.textPrimary }]}>
@@ -303,7 +372,34 @@ function makeStyles(c: Palette) {
     subtitle: { fontSize: 12, color: c.textSecondary, marginTop: 2 },
     addBtn: { paddingHorizontal: 16, paddingVertical: 10 },
 
-    searchRow: { position: "relative", justifyContent: "center", paddingHorizontal: 20, marginTop: 14 },
+    bookSelectorWrapper: {
+      paddingHorizontal: 20,
+      marginTop: 12,
+    },
+    bookSelectorLabel: {
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.5,
+      marginBottom: 6,
+    },
+    bookChipsRow: {
+      gap: 8,
+    },
+    bookChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    bookChipText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+
+    searchRow: { position: "relative", justifyContent: "center", paddingHorizontal: 20, marginTop: 12 },
     searchIcon: { position: "absolute", left: 32, zIndex: 1 },
     searchInput: { paddingLeft: 38 },
 
@@ -334,7 +430,7 @@ function makeStyles(c: Palette) {
 
     list: { padding: 20, paddingTop: 12, paddingBottom: 40, gap: 12 },
 
-    expenseCard: {},
+    expenseCard: { padding: 14 },
     expenseTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     expenseCategory: { fontSize: 16, fontWeight: "800", color: c.textPrimary },
     expenseAmount: { fontSize: 16, fontWeight: "800", color: c.accent },

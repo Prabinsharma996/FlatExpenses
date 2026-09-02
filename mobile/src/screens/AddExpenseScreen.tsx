@@ -15,9 +15,9 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../navigation/types";
-import { ExpenseApi, FlatApi } from "../api/endpoints";
+import { BookApi, ExpenseApi, FlatApi } from "../api/endpoints";
 import { apiErrorMessage } from "../api/client";
-import { Flat, SplitType } from "../types";
+import { Book, Flat, SplitType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import Screen from "../components/Screen";
 import GlassInput from "../components/GlassInput";
@@ -51,6 +51,8 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [flat, setFlat] = useState<Flat | null>(null);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [targetBookId, setTargetBookId] = useState<number>(bookId);
   const [amount, setAmount] = useState(expenseToEdit ? String(expenseToEdit.amount) : "");
   const [category, setCategory] = useState(expenseToEdit ? expenseToEdit.category : "");
   const [remarks, setRemarks] = useState(expenseToEdit ? expenseToEdit.remarks ?? "" : "");
@@ -75,8 +77,13 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await FlatApi.detail(flatId);
-        setFlat(data);
+        const [flatRes, booksRes] = await Promise.all([
+          FlatApi.detail(flatId),
+          BookApi.list(flatId),
+        ]);
+        setFlat(flatRes.data);
+        setBooks(booksRes.data);
+
         if (expenseToEdit) {
           const participantIds = expenseToEdit.splits.map((s) => s.userId);
           setSelectedIds(new Set(participantIds));
@@ -86,12 +93,12 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
           });
           setExactAmounts(exactMap);
         } else {
-          const allIds = data.members.map((m) => m.userId);
+          const allIds = flatRes.data.members.map((m) => m.userId);
           setSelectedIds(new Set(allIds));
           setPaidById(user?.id ?? allIds[0] ?? null);
         }
       } catch (err) {
-        Alert.alert("Couldn't load flat members", apiErrorMessage(err));
+        Alert.alert("Couldn't load flat details", apiErrorMessage(err));
       }
     })();
   }, [flatId, user?.id, expenseToEdit]);
@@ -145,7 +152,7 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
           participants,
         });
       } else {
-        await ExpenseApi.create(bookId, {
+        await ExpenseApi.create(targetBookId, {
           amount: numericAmount,
           category: category.trim(),
           remarks: remarks.trim() || undefined,
@@ -178,229 +185,283 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        {/* ── Amount ── */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={styles.sectionLabel}>Amount (₹)</Text>
-          <TextInput
-            style={[styles.amountInput, { color: numericVal(amount) > 0 ? colors.textPrimary : colors.textTertiary }]}
-            placeholder="0.00"
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={setAmount}
-          />
-        </View>
-
-        {/* ── Category ── */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={styles.sectionLabel}>Category</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryRow}
-          >
-            {CATEGORIES.map((c) => {
-              const selected = category === c.label;
-              return (
-                <TouchableOpacity
-                  key={c.label}
-                  style={[
-                    styles.categoryChip,
-                    {
-                      backgroundColor: selected ? colors.accent : colors.input,
-                      borderColor: selected ? colors.accent : colors.inputBorder,
-                    },
-                  ]}
-                  onPress={() => setCategory(c.label)}
-                  activeOpacity={0.75}
-                >
-                  <Feather name={c.icon as any} size={13} color={selected ? colors.onAccent : colors.textSecondary} />
-                  <Text style={[styles.categoryChipText, { color: selected ? colors.onAccent : colors.textPrimary }]}>
-                    {c.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {/* Custom category input */}
-          <GlassInput
-            placeholder="Or type a custom category…"
-            value={CATEGORIES.some((c) => c.label === category) ? "" : category}
-            onChangeText={(v) => setCategory(v)}
-            style={styles.customCatInput}
-          />
-        </View>
-
-        {/* ── Paid By ── */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={styles.sectionLabel}>Paid by</Text>
-          <TouchableOpacity
-            style={[styles.dropdown, { backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-            onPress={() => setShowPaidByModal(true)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.dropdownLeft}>
-              <View style={[styles.memberDot, { backgroundColor: colors.accentSoft }]}>
-                <Text style={[styles.memberInitial, { color: colors.accent }]}>
-                  {paidByMember?.user.name?.charAt(0).toUpperCase() ?? "?"}
-                </Text>
-              </View>
-              <Text style={[styles.dropdownText, { color: colors.textPrimary }]}>
-                {paidByMember?.user.name ?? "Select member"}
-              </Text>
-            </View>
-            <Feather name="chevron-down" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Split Between ── */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={styles.sectionLabel}>Split between</Text>
-          <View style={styles.memberRow}>
-            {flat.members.map((m) => {
-              const selected = selectedIds.has(m.userId);
-              return (
-                <TouchableOpacity
-                  key={m.userId}
-                  style={[
-                    styles.memberChip,
-                    {
-                      backgroundColor: selected ? colors.accent : colors.input,
-                      borderColor: selected ? colors.accent : colors.inputBorder,
-                    },
-                  ]}
-                  onPress={() => toggleMember(m.userId)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.memberChipText, { color: selected ? colors.onAccent : colors.textPrimary }]}>
-                    {m.user.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Split type toggle */}
-          <View style={[styles.splitToggle, { backgroundColor: colors.input }]}>
-            {SPLIT_OPTIONS.map((opt) => {
-              const active = splitType === opt.value;
-              return (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={[styles.splitBtn, active && { backgroundColor: colors.accent }]}
-                  onPress={() => setSplitType(opt.value)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.splitBtnText, { color: active ? colors.onAccent : colors.textSecondary }]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Custom split inputs */}
-          {splitType !== "EQUAL" && (
-            <View style={styles.customSplitContainer}>
-              {Array.from(selectedIds).map((userId) => {
-                const member = flat.members.find((m) => m.userId === userId);
-                if (!member) return null;
-                const isPercent = splitType === "PERCENTAGE";
-                return (
-                  <View key={userId} style={[styles.customSplitRow, { borderBottomColor: colors.divider }]}>
-                    <View style={styles.customSplitLeft}>
-                      <View style={[styles.memberDot, { backgroundColor: colors.accentSoft }]}>
-                        <Text style={[styles.memberInitial, { color: colors.accent }]}>
-                          {member.user.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <Text style={[styles.customSplitName, { color: colors.textPrimary }]}>{member.user.name}</Text>
-                    </View>
-                    <View style={styles.customSplitInputWrap}>
-                      {!isPercent && (
-                        <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>₹</Text>
-                      )}
-                      <TextInput
-                        style={[styles.customSplitInput, { color: colors.textPrimary, borderColor: colors.inputBorder, backgroundColor: colors.input }]}
-                        placeholder="0"
-                        placeholderTextColor={colors.textTertiary}
-                        keyboardType="numeric"
-                        value={isPercent ? (percentages[userId] ?? "") : (exactAmounts[userId] ?? "")}
-                        onChangeText={(v) =>
-                          isPercent
-                            ? setPercentages((prev) => ({ ...prev, [userId]: v }))
-                            : setExactAmounts((prev) => ({ ...prev, [userId]: v }))
-                        }
+          {/* ── Target Expense Book Picker ── */}
+          {books.length > 0 && !expenseToEdit && (
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+              <Text style={styles.sectionLabel}>Target Expense Book</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                {books.map((b) => {
+                  const active = targetBookId === b.id;
+                  const isOpen = b.status === "OPEN";
+                  return (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={[
+                        styles.categoryChip,
+                        {
+                          backgroundColor: active ? colors.accent : colors.input,
+                          borderColor: active ? colors.accent : colors.inputBorder,
+                        },
+                      ]}
+                      onPress={() => setTargetBookId(b.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Feather
+                        name={isOpen ? "book" : "lock"}
+                        size={13}
+                        color={active ? colors.onAccent : isOpen ? colors.accent : colors.textSecondary}
                       />
-                      {isPercent && (
-                        <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>%</Text>
-                      )}
-                    </View>
-                  </View>
+                      <Text style={[styles.categoryChipText, { color: active ? colors.onAccent : colors.textPrimary }]}>
+                        {b.name} {isOpen ? "" : "(Closed)"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* ── Amount ── */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={styles.sectionLabel}>Amount (₹)</Text>
+            <TextInput
+              style={[styles.amountInput, { color: numericVal(amount) > 0 ? colors.textPrimary : colors.textTertiary }]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="decimal-pad"
+              value={amount}
+              onChangeText={setAmount}
+            />
+          </View>
+
+          {/* ── Category ── */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={styles.sectionLabel}>Category</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryRow}
+            >
+              {CATEGORIES.map((c) => {
+                const selected = category === c.label;
+                return (
+                  <TouchableOpacity
+                    key={c.label}
+                    style={[
+                      styles.categoryChip,
+                      {
+                        backgroundColor: selected ? colors.accent : colors.input,
+                        borderColor: selected ? colors.accent : colors.inputBorder,
+                      },
+                    ]}
+                    onPress={() => setCategory(c.label)}
+                    activeOpacity={0.75}
+                  >
+                    <Feather name={c.icon as any} size={13} color={selected ? colors.onAccent : colors.textSecondary} />
+                    <Text style={[styles.categoryChipText, { color: selected ? colors.onAccent : colors.textPrimary }]}>
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity
+                style={[
+                  styles.categoryChip,
+                  {
+                    backgroundColor: !CATEGORIES.some((c) => c.label === category) && category !== "" ? colors.accent : colors.input,
+                    borderColor: !CATEGORIES.some((c) => c.label === category) && category !== "" ? colors.accent : colors.inputBorder,
+                  },
+                ]}
+                onPress={() => {
+                  if (CATEGORIES.some((c) => c.label === category)) setCategory("");
+                }}
+                activeOpacity={0.75}
+              >
+                <Feather name="plus-circle" size={13} color={!CATEGORIES.some((c) => c.label === category) && category !== "" ? colors.onAccent : colors.textSecondary} />
+                <Text style={[styles.categoryChipText, { color: !CATEGORIES.some((c) => c.label === category) && category !== "" ? colors.onAccent : colors.textPrimary }]}>
+                  + Custom
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+            {/* Custom category input */}
+            <GlassInput
+              placeholder="Or type a custom category e.g. Medicine / Gym / Furniture…"
+              value={CATEGORIES.some((c) => c.label === category) ? "" : category}
+              onChangeText={(v) => setCategory(v)}
+              style={styles.customCatInput}
+            />
+          </View>
 
-              {splitType === "PERCENTAGE" && (
-                <View style={[styles.pctSummary, { backgroundColor: Math.abs(totalPercentage - 100) < 0.01 ? colors.accentSoft : colors.dangerSoft }]}>
-                  <Feather
-                    name={Math.abs(totalPercentage - 100) < 0.01 ? "check-circle" : "alert-circle"}
-                    size={14}
-                    color={Math.abs(totalPercentage - 100) < 0.01 ? colors.accent : colors.danger}
-                  />
-                  <Text style={[styles.pctSummaryText, { color: Math.abs(totalPercentage - 100) < 0.01 ? colors.accent : colors.danger }]}>
-                    {Math.abs(totalPercentage - 100) < 0.01
-                      ? "Percentages add up to 100% ✓"
-                      : `Total: ${totalPercentage}% — must equal 100%`}
+          {/* ── Paid By ── */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={styles.sectionLabel}>Paid by</Text>
+            <TouchableOpacity
+              style={[styles.dropdown, { backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+              onPress={() => setShowPaidByModal(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.dropdownLeft}>
+                <View style={[styles.memberDot, { backgroundColor: colors.accentSoft }]}>
+                  <Text style={[styles.memberInitial, { color: colors.accent }]}>
+                    {paidByMember?.user.name?.charAt(0).toUpperCase() ?? "?"}
                   </Text>
                 </View>
-              )}
+                <Text style={[styles.dropdownText, { color: colors.textPrimary }]}>
+                  {paidByMember?.user.name ?? "Select member"}
+                </Text>
+              </View>
+              <Feather name="chevron-down" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Split Between ── */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={styles.sectionLabel}>Split between</Text>
+            <View style={styles.memberRow}>
+              {flat.members.map((m) => {
+                const selected = selectedIds.has(m.userId);
+                return (
+                  <TouchableOpacity
+                    key={m.userId}
+                    style={[
+                      styles.memberChip,
+                      {
+                        backgroundColor: selected ? colors.accent : colors.input,
+                        borderColor: selected ? colors.accent : colors.inputBorder,
+                      },
+                    ]}
+                    onPress={() => toggleMember(m.userId)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.memberChipText, { color: selected ? colors.onAccent : colors.textPrimary }]}>
+                      {m.user.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          )}
-        </View>
 
-        {/* ── Remarks ── */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Text style={styles.sectionLabel}>Remarks (optional)</Text>
-          <GlassInput
-            placeholder="e.g. Big Bazaar run, monthly rent…"
-            value={remarks}
-            onChangeText={setRemarks}
-            multiline
-            numberOfLines={2}
-            style={styles.remarksInput}
-          />
-        </View>
+            {/* Split type toggle */}
+            <View style={[styles.splitToggle, { backgroundColor: colors.input }]}>
+              {SPLIT_OPTIONS.map((opt) => {
+                const active = splitType === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.splitBtn, active && { backgroundColor: colors.accent }]}
+                    onPress={() => setSplitType(opt.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.splitBtnText, { color: active ? colors.onAccent : colors.textSecondary }]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-        {/* ── Submit ── */}
-        <TouchableOpacity
-          style={[
-            styles.submitBtn,
-            {
-              backgroundColor:
-                !amount || !category.trim() || selectedIds.size === 0
-                  ? colors.accentSoft
-                  : colors.accent,
-            },
-          ]}
-          onPress={handleSubmit}
-          disabled={loading || !amount || !category.trim() || selectedIds.size === 0}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <Text style={[styles.submitText, { color: colors.onAccent }]}>
-              {expenseToEdit ? "Saving…" : "Adding…"}
-            </Text>
-          ) : (
-            <>
-              <Feather name={expenseToEdit ? "check-circle" : "plus-circle"} size={18} color={colors.onAccent} />
+            {/* Custom split inputs */}
+            {splitType !== "EQUAL" && (
+              <View style={styles.customSplitContainer}>
+                {Array.from(selectedIds).map((userId) => {
+                  const member = flat.members.find((m) => m.userId === userId);
+                  if (!member) return null;
+                  const isPercent = splitType === "PERCENTAGE";
+                  return (
+                    <View key={userId} style={[styles.customSplitRow, { borderBottomColor: colors.divider }]}>
+                      <View style={styles.customSplitLeft}>
+                        <View style={[styles.memberDot, { backgroundColor: colors.accentSoft }]}>
+                          <Text style={[styles.memberInitial, { color: colors.accent }]}>
+                            {member.user.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={[styles.customSplitName, { color: colors.textPrimary }]}>{member.user.name}</Text>
+                      </View>
+                      <View style={styles.customSplitInputWrap}>
+                        {!isPercent && (
+                          <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>₹</Text>
+                        )}
+                        <TextInput
+                          style={[styles.customSplitInput, { color: colors.textPrimary, borderColor: colors.inputBorder, backgroundColor: colors.input }]}
+                          placeholder="0"
+                          placeholderTextColor={colors.textTertiary}
+                          keyboardType="numeric"
+                          value={isPercent ? (percentages[userId] ?? "") : (exactAmounts[userId] ?? "")}
+                          onChangeText={(v) =>
+                            isPercent
+                              ? setPercentages((prev) => ({ ...prev, [userId]: v }))
+                              : setExactAmounts((prev) => ({ ...prev, [userId]: v }))
+                          }
+                        />
+                        {isPercent && (
+                          <Text style={[styles.currencySymbol, { color: colors.textSecondary }]}>%</Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {splitType === "PERCENTAGE" && (
+                  <View style={[styles.pctSummary, { backgroundColor: Math.abs(totalPercentage - 100) < 0.01 ? colors.accentSoft : colors.dangerSoft }]}>
+                    <Feather
+                      name={Math.abs(totalPercentage - 100) < 0.01 ? "check-circle" : "alert-circle"}
+                      size={14}
+                      color={Math.abs(totalPercentage - 100) < 0.01 ? colors.accent : colors.danger}
+                    />
+                    <Text style={[styles.pctSummaryText, { color: Math.abs(totalPercentage - 100) < 0.01 ? colors.accent : colors.danger }]}>
+                      {Math.abs(totalPercentage - 100) < 0.01
+                        ? "Percentages add up to 100% ✓"
+                        : `Total: ${totalPercentage}% — must equal 100%`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* ── Remarks ── */}
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={styles.sectionLabel}>Remarks (optional)</Text>
+            <GlassInput
+              placeholder="e.g. Big Bazaar run, monthly rent…"
+              value={remarks}
+              onChangeText={setRemarks}
+              multiline
+              numberOfLines={2}
+              style={styles.remarksInput}
+            />
+          </View>
+
+          {/* ── Submit ── */}
+          <TouchableOpacity
+            style={[
+              styles.submitBtn,
+              {
+                backgroundColor:
+                  !amount || !category.trim() || selectedIds.size === 0
+                    ? colors.accentSoft
+                    : colors.accent,
+              },
+            ]}
+            onPress={handleSubmit}
+            disabled={loading || !amount || !category.trim() || selectedIds.size === 0}
+            activeOpacity={0.85}
+          >
+            {loading ? (
               <Text style={[styles.submitText, { color: colors.onAccent }]}>
-                {expenseToEdit ? "Save Changes" : "Add Expense"}
+                {expenseToEdit ? "Saving…" : "Adding…"}
               </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            ) : (
+              <>
+                <Feather name={expenseToEdit ? "check-circle" : "plus-circle"} size={18} color={colors.onAccent} />
+                <Text style={[styles.submitText, { color: colors.onAccent }]}>
+                  {expenseToEdit ? "Save Changes" : "Add Expense"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Paid By Modal */}
       <Modal visible={showPaidByModal} transparent animationType="slide">
@@ -473,7 +534,7 @@ function makeStyles(c: Palette) {
       paddingVertical: 10,
     },
 
-    // Categories
+    // Categories & Book Chips
     categoryRow: { gap: 8, paddingBottom: 4 },
     categoryChip: {
       flexDirection: "row",

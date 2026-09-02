@@ -1,29 +1,39 @@
 import React, { useState } from "react";
-import {
-  Alert,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, BackHandler, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import MembersTabScreen from "./MembersTabScreen";
-import ChoresTabScreen from "./ChoresTabScreen";
 import VotingTabScreen from "./VotingTabScreen";
+import TasksTabScreen from "./TasksTabScreen";
+import ShoppingTabScreen from "./ShoppingTabScreen";
+import BooksTabScreen from "./BooksTabScreen";
 import GlassCard from "../../components/GlassCard";
 import { useTheme } from "../../theme/ThemeContext";
 import { Palette } from "../../theme/colors";
 
-type FeatureKey = "menu" | "chores" | "voting" | "members";
+type FeatureKey = "menu" | "books" | "tasks" | "shopping" | "voting" | "members";
 
 export default function MoreTabScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const navigation = useNavigation<any>();
   const [activeFeature, setActiveFeature] = useState<FeatureKey>("menu");
+
+  // Intercept hardware/device back button when inside a sub-feature to return to More menu
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        if (activeFeature !== "menu") {
+          setActiveFeature("menu");
+          return true;
+        }
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => subscription.remove();
+    }, [activeFeature])
+  );
 
   function handleEmailPress() {
     Linking.openURL("mailto:prabin.sharmaa67@gmail.com").catch(() => {
@@ -45,7 +55,9 @@ export default function MoreTabScreen() {
             <Text style={[styles.backText, { color: colors.accent }]}>All Features</Text>
           </TouchableOpacity>
           <Text style={[styles.activeTitle, { color: colors.textPrimary }]}>
-            {activeFeature === "chores" && "Chore Roster"}
+            {activeFeature === "books" && "Expense Books"}
+            {activeFeature === "tasks" && "Tasks & Workload"}
+            {activeFeature === "shopping" && "Shared Shopping"}
             {activeFeature === "voting" && "Flat Polls"}
             {activeFeature === "members" && "Flat Members"}
           </Text>
@@ -53,7 +65,9 @@ export default function MoreTabScreen() {
 
         {/* Selected Feature Screen View */}
         <View style={{ flex: 1 }}>
-          {activeFeature === "chores" && <ChoresTabScreen />}
+          {activeFeature === "books" && <BooksTabScreen />}
+          {activeFeature === "tasks" && <TasksTabScreen />}
+          {activeFeature === "shopping" && <ShoppingTabScreen />}
           {activeFeature === "voting" && <VotingTabScreen />}
           {activeFeature === "members" && <MembersTabScreen />}
         </View>
@@ -70,32 +84,72 @@ export default function MoreTabScreen() {
         {/* ── Features Section Title ── */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Flat Features</Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          Select a feature below to view chores, voting, or flat members
+          Select a feature below to view tasks, shopping, or voting
         </Text>
 
         {/* ── Vertical Features List ── */}
         <View style={styles.verticalList}>
-          {/* 1. Chore Roster */}
+          {/* 1. Expense Books */}
           <TouchableOpacity
             style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-            onPress={() => setActiveFeature("chores")}
+            onPress={() => setActiveFeature("books")}
             activeOpacity={0.8}
           >
             <View style={[styles.iconWrap, { backgroundColor: colors.accentSoft }]}>
-              <Feather name="check-circle" size={22} color={colors.accent} />
+              <Feather name="book-open" size={22} color={colors.accent} />
             </View>
             <View style={styles.featureInfo}>
               <Text style={[styles.featureName, { color: colors.textPrimary }]}>
-                Chore Roster & Duty Scheduler
+                Expense Books & History
               </Text>
               <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>
-                Assign weekly chores & pass turns automatically
+                Manage monthly books, trip logs & settlement reports
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* 2. Polls & Voting */}
+          {/* 2. Tasks & Workload Fairness */}
+          <TouchableOpacity
+            style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+            onPress={() => setActiveFeature("tasks")}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.iconWrap, { backgroundColor: colors.accentSoft }]}>
+              <Feather name="layers" size={22} color={colors.accent} />
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={[styles.featureName, { color: colors.textPrimary }]}>
+                Shared Tasks & Workload Fairness
+              </Text>
+              <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>
+                Auto-assign tasks fairly, workload points & swaps
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* 2. Shared Shopping List */}
+          <TouchableOpacity
+            style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+            onPress={() => setActiveFeature("shopping")}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.iconWrap, { backgroundColor: colors.accentSoft }]}>
+              <Feather name="shopping-cart" size={22} color={colors.accent} />
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={[styles.featureName, { color: colors.textPrimary }]}>
+                Shared Shopping List
+              </Text>
+              <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>
+                Grocery checklist & 1-tap convert to expense split
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* 4. Polls & Voting */}
           <TouchableOpacity
             style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => setActiveFeature("voting")}
@@ -115,7 +169,7 @@ export default function MoreTabScreen() {
             <Feather name="chevron-right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* 3. Flat Members */}
+          {/* 5. Flat Members */}
           <TouchableOpacity
             style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => setActiveFeature("members")}
@@ -135,7 +189,7 @@ export default function MoreTabScreen() {
             <Feather name="chevron-right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* 4. App Feature Guide */}
+          {/* 6. App Feature Guide */}
           <TouchableOpacity
             style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => navigation.navigate("Onboarding")}
@@ -175,7 +229,7 @@ export default function MoreTabScreen() {
           </View>
 
           <Text style={[styles.appBio, { color: colors.textSecondary }]}>
-            FlatSplit is a turn-based Roommate Chore Roster, Duty Scheduler & Shared Expense Management app designed to keep your household organized and fair.
+            FlatSplit is a turn-based Roommate Chore Roster, Duty Scheduler, Shared Tasks & Expense Management app designed to divide the work and expenses of living together fairly.
           </Text>
 
           <View style={[styles.divider, { backgroundColor: colors.divider }]} />

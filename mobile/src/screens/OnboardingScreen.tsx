@@ -31,11 +31,11 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "2",
-    icon: "check-circle",
-    badge: "Roommate Duty Roster",
-    title: "Turn-Based Chore Scheduler",
+    icon: "layers",
+    badge: "Workload Fairness",
+    title: "Shared Tasks & Workload",
     description:
-      "Assign kitchen cleaning, trash disposal & house chores to roommates. Pass duty turns weekly so everyone contributes equally!",
+      "Auto-assign tasks fairly, log completed work, swap duties with roommates, and track workload points in real-time!",
   },
   {
     id: "3",

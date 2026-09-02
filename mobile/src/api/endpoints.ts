@@ -1,5 +1,26 @@
 import { api } from "./client";
-import { Book, BookDetail, Chore, ChoreFrequency, Expense, Flat, FlatBalances, FlatMember, FlatReport, GroupType, Poll, SplitType, User } from "../types";
+import {
+  Book,
+  BookDetail,
+  Chore,
+  ChoreFrequency,
+  Expense,
+  Flat,
+  FlatBalances,
+  FlatMember,
+  FlatReport,
+  GroupType,
+  Poll,
+  ShoppingItem,
+  SplitType,
+  Task,
+  TaskAssignmentType,
+  TaskDifficulty,
+  TaskPreference,
+  TaskType,
+  TaskWorkload,
+  User,
+} from "../types";
 
 export const AuthApi = {
   register: (name: string, email: string, password: string) =>
@@ -69,4 +90,37 @@ export const ChoreApi = {
   toggle: (choreId: number) => api.patch<Chore>(`/chores/${choreId}/toggle`),
   rotate: (choreId: number) => api.post<Chore>(`/chores/${choreId}/rotate`),
   remove: (choreId: number) => api.delete(`/chores/${choreId}`),
+};
+
+export type CreateTaskPayload = {
+  title: string;
+  description?: string;
+  category: string;
+  dueDate?: string;
+  dueTime?: string;
+  taskType: TaskType;
+  repeatInterval?: string;
+  difficulty: TaskDifficulty;
+  points?: number;
+  assignmentType: TaskAssignmentType;
+  assignedUserId?: number;
+};
+
+export const TaskApi = {
+  list: (flatId: number) => api.get<Task[]>(`/flats/${flatId}/tasks`),
+  create: (flatId: number, payload: CreateTaskPayload) => api.post<Task>(`/flats/${flatId}/tasks`, payload),
+  complete: (taskId: number) => api.patch<Task>(`/tasks/${taskId}/complete`),
+  swap: (taskId: number, targetId: number, reason?: string) => api.post(`/tasks/${taskId}/swap`, { targetId, reason }),
+  respondSwap: (swapId: number, action: "ACCEPT" | "REJECT") => api.post(`/task-swaps/${swapId}/respond`, { action }),
+  skip: (taskId: number, reason?: string, reassign?: boolean) => api.post(`/tasks/${taskId}/skip`, { reason, reassign }),
+  workload: (flatId: number) => api.get<TaskWorkload>(`/flats/${flatId}/workload`),
+  getPreferences: (flatId: number) => api.get<TaskPreference>(`/flats/${flatId}/task-preferences`),
+  updatePreferences: (flatId: number, pref: Partial<TaskPreference>) => api.put<TaskPreference>(`/flats/${flatId}/task-preferences`, pref),
+};
+
+export const ShoppingApi = {
+  list: (flatId: number) => api.get<ShoppingItem[]>(`/flats/${flatId}/shopping`),
+  add: (flatId: number, title: string, quantity?: string) => api.post<ShoppingItem>(`/flats/${flatId}/shopping`, { title, quantity }),
+  toggle: (itemId: number) => api.patch<ShoppingItem>(`/shopping/${itemId}/toggle`),
+  remove: (itemId: number) => api.delete(`/shopping/${itemId}`),
 };

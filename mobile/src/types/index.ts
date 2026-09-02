@@ -125,3 +125,75 @@ export type Chore = {
   assignedUser?: { id: number; name: string; email: string } | null;
   creator: { id: number; name: string; email: string };
 };
+
+export type TaskDifficulty = "EASY" | "MEDIUM" | "HARD";
+export type TaskType = "ONE_TIME" | "RECURRING" | "ROTATING";
+export type TaskAssignmentType = "MANUAL" | "AUTO_FAIR" | "ROTATING";
+export type TaskStatus = "PENDING" | "COMPLETED" | "OVERDUE" | "SKIPPED";
+
+export type TaskSwap = {
+  id: number;
+  taskId: number;
+  requesterId: number;
+  targetId: number;
+  reason: string | null;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  requester: { id: number; name: string };
+  target: { id: number; name: string };
+};
+
+export type Task = {
+  id: number;
+  flatId: number;
+  title: string;
+  description: string | null;
+  category: string;
+  dueDate: string;
+  dueTime: string | null;
+  taskType: TaskType;
+  repeatInterval: string | null;
+  difficulty: TaskDifficulty;
+  points: number;
+  assignmentType: TaskAssignmentType;
+  assignedUserId: number | null;
+  createdBy: number;
+  status: TaskStatus;
+  completedAt: string | null;
+  createdAt: string;
+  creator: { id: number; name: string };
+  assignedUser?: { id: number; name: string } | null;
+  swaps?: TaskSwap[];
+};
+
+export type TaskWorkloadMember = {
+  userId: number;
+  name: string;
+  points: number;
+};
+
+export type TaskWorkload = {
+  members: TaskWorkloadMember[];
+  average: number;
+  fairnessScore: number;
+};
+
+export type TaskPreference = {
+  availableDays: string;
+  preferredCategories: string;
+  avoidCategories: string;
+  preferredTime: string;
+};
+
+export type ShoppingItem = {
+  id: number;
+  flatId: number;
+  title: string;
+  quantity: string | null;
+  isBought: boolean;
+  boughtById: number | null;
+  addedById: number;
+  expenseId: number | null;
+  createdAt: string;
+  addedBy: { id: number; name: string };
+  boughtBy?: { id: number; name: string } | null;
+};

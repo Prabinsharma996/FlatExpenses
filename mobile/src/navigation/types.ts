@@ -21,6 +21,6 @@ export type FlatTabParamList = {
   Home: undefined;
   Expenses: undefined;
   Balances: undefined;
-  Books: undefined;
+  Tasks: undefined;
   More: undefined;
 };

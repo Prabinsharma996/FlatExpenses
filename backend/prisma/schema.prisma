@@ -52,6 +52,14 @@ model User {
   pollVotes       PollVote[]     @relation("PollVoter")
   choresCreated   Chore[]        @relation("ChoreCreator")
   choresAssigned  Chore[]        @relation("ChoreAssignee")
+  tasksCreated    Task[]         @relation("TaskCreator")
+  tasksAssigned   Task[]         @relation("TaskAssignee")
+  swapsRequested  TaskSwap[]     @relation("SwapRequester")
+  swapsTargeted   TaskSwap[]     @relation("SwapTarget")
+  taskHistories   TaskHistory[]
+  taskPreferences TaskPreference[]
+  shoppingAdded   ShoppingItem[] @relation("ShoppingAdder")
+  shoppingBought  ShoppingItem[] @relation("ShoppingBuyer")
 }
 
 model Flat {
@@ -63,10 +71,14 @@ model Flat {
   groupType  FlatGroupType @default(FLAT)
   createdAt  DateTime      @default(now())
 
-  members FlatMember[]
-  books   Book[]
-  polls   Poll[]
-  chores  Chore[]
+  members         FlatMember[]
+  books           Book[]
+  polls           Poll[]
+  chores          Chore[]
+  tasks           Task[]
+  taskHistories   TaskHistory[]
+  taskPreferences TaskPreference[]
+  shoppingItems   ShoppingItem[]
 }
 
 model FlatMember {
@@ -191,4 +203,121 @@ model Chore {
   flat         Flat  @relation(fields: [flatId], references: [id], onDelete: Cascade)
   creator      User  @relation("ChoreCreator", fields: [createdBy], references: [id])
   assignedUser User? @relation("ChoreAssignee", fields: [assignedUserId], references: [id])
+}
+
+enum TaskDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum TaskType {
+  ONE_TIME
+  RECURRING
+  ROTATING
+}
+
+enum TaskAssignmentType {
+  MANUAL
+  AUTO_FAIR
+  ROTATING
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+  SKIPPED
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Task {
+  id             Int                @id @default(autoincrement())
+  flatId         Int
+  title          String
+  description    String?
+  category       String             @default("Other")
+  dueDate        DateTime
+  dueTime        String?            @default("19:00")
+  taskType       TaskType           @default(ONE_TIME)
+  repeatInterval String?
+  difficulty     TaskDifficulty     @default(MEDIUM)
+  points         Int                @default(3)
+  assignmentType TaskAssignmentType @default(MANUAL)
+  assignedUserId Int?
+  createdBy      Int
+  status         TaskStatus         @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+
+  flat         Flat          @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  creator      User          @relation("TaskCreator", fields: [createdBy], references: [id])
+  assignedUser User?         @relation("TaskAssignee", fields: [assignedUserId], references: [id])
+  swaps        TaskSwap[]
+  histories    TaskHistory[]
+}
+
+model TaskSwap {
+  id          Int        @id @default(autoincrement())
+  taskId      Int
+  requesterId Int
+  targetId    Int
+  reason      String?
+  status      SwapStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requester User @relation("SwapRequester", fields: [requesterId], references: [id])
+  target    User @relation("SwapTarget", fields: [targetId], references: [id])
+}
+
+model TaskHistory {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  flatId       Int
+  userId       Int
+  action       String
+  pointsEarned Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TaskPreference {
+  id                  Int      @id @default(autoincrement())
+  flatId              Int
+  userId              Int
+  availableDays       String   @default("Mon,Tue,Wed,Thu,Fri,Sat,Sun")
+  preferredCategories String   @default("")
+  avoidCategories     String   @default("")
+  preferredTime       String   @default("ANY")
+  updatedAt           DateTime @updatedAt
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([flatId, userId])
+}
+
+model ShoppingItem {
+  id         Int      @id @default(autoincrement())
+  flatId     Int
+  title      String
+  quantity   String?
+  isBought   Boolean  @default(false)
+  boughtById Int?
+  addedById  Int
+  expenseId  Int?
+  createdAt  DateTime @default(now())
+
+  flat     Flat  @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  addedBy  User  @relation("ShoppingAdder", fields: [addedById], references: [id])
+  boughtBy User? @relation("ShoppingBuyer", fields: [boughtById], references: [id])
 }

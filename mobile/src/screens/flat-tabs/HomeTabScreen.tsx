@@ -127,9 +127,19 @@ export default function HomeTabScreen() {
             <Text style={styles.greeting}>{flatName}</Text>
             <Text style={styles.subGreeting}>{openBook ? `Tracking "${openBook.name}"` : "No book active"}</Text>
           </View>
-          {hasBooks && (
-            <FilterDropdown label="Book" icon="book" value={selectedBookId} options={bookOptions} onChange={setSelectedBookId} />
-          )}
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.addBookBtn, { backgroundColor: colors.accentSoft }]}
+              onPress={() => navigation.navigate("CreateBook", { flatId })}
+              activeOpacity={0.8}
+            >
+              <Feather name="plus-circle" size={14} color={colors.accent} />
+              <Text style={[styles.addBookBtnText, { color: colors.accent }]}>Book</Text>
+            </TouchableOpacity>
+            {hasBooks && (
+              <FilterDropdown label="Book" icon="book" value={selectedBookId} options={bookOptions} onChange={setSelectedBookId} />
+            )}
+          </View>
         </View>
 
         {books === null && (
@@ -249,6 +259,19 @@ function makeStyles(c: Palette) {
     headerRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     greeting: { fontSize: 24, fontWeight: "800", color: c.textPrimary },
     subGreeting: { fontSize: 14, color: c.textSecondary, marginTop: 2, marginBottom: 4 },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+    addBookBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: 12,
+    },
+    addBookBtnText: {
+      fontSize: 12,
+      fontWeight: "800",
+    },
 
     heroCard: { alignItems: "flex-start" },
     heroLabel: { color: c.textSecondary, fontWeight: "700", fontSize: 13 },
