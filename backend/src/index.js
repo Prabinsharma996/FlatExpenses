@@ -10,6 +10,7 @@ const pollRoutes = require("./routes/polls");
 const choreRoutes = require("./routes/chores");
 const taskRoutes = require("./routes/tasks");
 const shoppingRoutes = require("./routes/shopping");
+const budgetRoutes = require("./routes/budgets");
 
 const app = express();
 app.use(cors());
@@ -19,6 +20,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use("/auth", authRoutes);
 app.use("/flats", flatRoutes);
+app.use("/flats", budgetRoutes);
 app.use("/", bookRoutes); // exposes /flats/:flatId/books and /books/:id...
 app.use("/", expenseRoutes); // exposes /books/:bookId/expenses and /expenses/:id
 app.use("/", pollRoutes); // exposes /flats/:flatId/polls and /polls/:id/...

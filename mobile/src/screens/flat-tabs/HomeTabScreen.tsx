@@ -8,8 +8,9 @@ import GlassCard from "../../components/GlassCard";
 import DonutChart from "../../components/DonutChart";
 import EmptyState from "../../components/EmptyState";
 import FilterDropdown from "../../components/FilterDropdown";
+import SetBudgetModal from "../../components/SetBudgetModal";
 import { useFlat } from "../../context/FlatContext";
-import { BookApi, FlatApi } from "../../api/endpoints";
+import { BookApi, BudgetApi, FlatApi, FlatBudgetData } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { Book, Expense, FlatReport } from "../../types";
 import { Palette, colorForCategories } from "../../theme/colors";
@@ -51,15 +52,22 @@ export default function HomeTabScreen() {
 
   const [books, setBooks] = useState<Book[] | null>(null);
   const [expenses, setExpenses] = useState<Expense[] | null>(null);
+  const [budgetData, setBudgetData] = useState<FlatBudgetData | null>(null);
+  const [showSetBudgetModal, setShowSetBudgetModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const initializedSelection = useRef(false);
 
   const load = useCallback(async () => {
     try {
-      const [booksRes, expensesRes] = await Promise.all([BookApi.list(flatId), FlatApi.expenses(flatId)]);
+      const [booksRes, expensesRes, budgetRes] = await Promise.all([
+        BookApi.list(flatId),
+        FlatApi.expenses(flatId),
+        BudgetApi.get(flatId).catch(() => ({ data: null })),
+      ]);
       setBooks(booksRes.data);
       setExpenses(expensesRes.data);
+      if (budgetRes?.data) setBudgetData(budgetRes.data);
 
       if (!initializedSelection.current) {
         const openBook = booksRes.data.find((b) => b.status === "OPEN");
@@ -184,6 +192,137 @@ export default function HomeTabScreen() {
           </GlassCard>
         )}
 
+        {/* ── Monthly Household Budget Card ── */}
+        {budgetData && (
+          <GlassCard style={styles.budgetCard}>
+            <View style={styles.budgetHeader}>
+              <View>
+                <View style={styles.budgetTitleRow}>
+                  <Text style={{ fontSize: 18 }}>📊</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+                    Monthly Flat Budget
+                  </Text>
+                </View>
+                <Text style={[styles.budgetSub, { color: colors.textSecondary }]}>
+                  Household limits & overspending alerts
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.setBudgetBtn, { backgroundColor: colors.accentSoft }]}
+                onPress={() => setShowSetBudgetModal(true)}
+                activeOpacity={0.8}
+              >
+                <Feather name="settings" size={13} color={colors.accent} />
+                <Text style={[styles.setBudgetBtnText, { color: colors.accent }]}>Set Budget</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Smart Alert Banners */}
+            {budgetData.alerts.length > 0 && (
+              <View style={styles.alertStack}>
+                {budgetData.alerts.map((alertText, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.alertBanner,
+                      {
+                        backgroundColor: alertText.includes("🚨")
+                          ? "rgba(255, 71, 87, 0.15)"
+                          : "rgba(255, 165, 2, 0.15)",
+                        borderColor: alertText.includes("🚨") ? colors.danger : "#FFA502",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.alertText,
+                        { color: alertText.includes("🚨") ? colors.danger : "#FFA502" },
+                      ]}
+                    >
+                      {alertText}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Total Budget Progress Bar */}
+            <View style={styles.totalProgressBox}>
+              <View style={styles.progressTextRow}>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                  Spent: <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>₹{budgetData.totalSpent.toLocaleString()}</Text>
+                </Text>
+                <Text style={[styles.progressValue, { color: budgetData.totalPercentUsed >= 100 ? colors.danger : colors.accent }]}>
+                  Limit: ₹{budgetData.totalLimit.toLocaleString()} ({budgetData.totalPercentUsed}%)
+                </Text>
+              </View>
+
+              <View style={[styles.track, { marginTop: 6, height: 10, borderRadius: 5 }]}>
+                <View
+                  style={[
+                    styles.fill,
+                    {
+                      height: 10,
+                      borderRadius: 5,
+                      width: `${Math.min(budgetData.totalPercentUsed, 100)}%`,
+                      backgroundColor:
+                        budgetData.totalPercentUsed >= 100
+                          ? colors.danger
+                          : budgetData.totalPercentUsed >= 80
+                          ? "#FFA502"
+                          : colors.accent,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {/* Category Breakdown list */}
+            <View style={styles.categoryBudgetList}>
+              {budgetData.categories.map((c) => (
+                <View key={c.category} style={styles.catBudgetRow}>
+                  <View style={styles.catBudgetHeader}>
+                    <Text style={[styles.catName, { color: colors.textPrimary }]}>{c.category}</Text>
+                    <Text
+                      style={[
+                        styles.catAmount,
+                        {
+                          color:
+                            c.status === "OVER"
+                              ? colors.danger
+                              : c.status === "WARNING"
+                              ? "#FFA502"
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      ₹{c.spent.toLocaleString()} / ₹{c.amountLimit.toLocaleString()} ({c.percentUsed}%)
+                    </Text>
+                  </View>
+
+                  <View style={styles.catTrack}>
+                    <View
+                      style={[
+                        styles.catFill,
+                        {
+                          width: `${Math.min(c.percentUsed, 100)}%`,
+                          backgroundColor:
+                            c.status === "OVER"
+                              ? colors.danger
+                              : c.status === "WARNING"
+                              ? "#FFA502"
+                              : colors.accent,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        )}
+
         {hasBooks && report && report.expenseCount > 0 && (
           <GlassCard style={styles.chartCard}>
             <Text style={styles.sectionTitle}>By category</Text>
@@ -249,6 +388,16 @@ export default function HomeTabScreen() {
           <Feather name="plus" size={26} color={colors.onAccent} />
         </TouchableOpacity>
       )}
+
+      {showSetBudgetModal && (
+        <SetBudgetModal
+          visible={showSetBudgetModal}
+          flatId={flatId}
+          existingBudgets={budgetData?.categories ?? []}
+          onClose={() => setShowSetBudgetModal(false)}
+          onSaved={load}
+        />
+      )}
     </Screen>
   );
 }
@@ -277,6 +426,93 @@ function makeStyles(c: Palette) {
     heroLabel: { color: c.textSecondary, fontWeight: "700", fontSize: 13 },
     heroValue: { color: c.textPrimary, fontWeight: "800", fontSize: 36, marginTop: 4 },
     heroSubtitle: { color: c.textSecondary, fontSize: 13, marginTop: 4 },
+
+    budgetCard: {
+      marginBottom: 0,
+    },
+    budgetHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    budgetTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    budgetSub: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    setBudgetBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    setBudgetBtnText: {
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    alertStack: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    alertBanner: {
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    alertText: {
+      fontSize: 13,
+      fontWeight: "800",
+    },
+    totalProgressBox: {
+      marginBottom: 14,
+    },
+    progressTextRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    progressLabel: {
+      fontSize: 12,
+    },
+    progressValue: {
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    categoryBudgetList: {
+      gap: 10,
+    },
+    catBudgetRow: {},
+    catBudgetHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 4,
+    },
+    catName: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    catAmount: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    catTrack: {
+      height: 6,
+      backgroundColor: "rgba(150, 150, 150, 0.2)",
+      borderRadius: 3,
+      overflow: "hidden",
+    },
+    catFill: {
+      height: "100%",
+      borderRadius: 3,
+    },
 
     loading: { paddingVertical: 30, alignItems: "center" },
     emptyCard: { alignItems: "center" },

@@ -79,6 +79,7 @@ model Flat {
   taskHistories   TaskHistory[]
   taskPreferences TaskPreference[]
   shoppingItems   ShoppingItem[]
+  budgets         FlatBudget[]
 }
 
 model FlatMember {
@@ -320,4 +321,17 @@ model ShoppingItem {
   flat     Flat  @relation(fields: [flatId], references: [id], onDelete: Cascade)
   addedBy  User  @relation("ShoppingAdder", fields: [addedById], references: [id])
   boughtBy User? @relation("ShoppingBuyer", fields: [boughtById], references: [id])
+}
+
+model FlatBudget {
+  id          Int      @id @default(autoincrement())
+  flatId      Int
+  category    String
+  amountLimit Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+
+  @@unique([flatId, category])
 }

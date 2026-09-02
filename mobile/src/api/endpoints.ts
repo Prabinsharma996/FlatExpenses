@@ -118,6 +118,30 @@ export const TaskApi = {
   updatePreferences: (flatId: number, pref: Partial<TaskPreference>) => api.put<TaskPreference>(`/flats/${flatId}/task-preferences`, pref),
 };
 
+export type CategoryBudget = {
+  id: number;
+  category: string;
+  amountLimit: number;
+  spent: number;
+  percentUsed: number;
+  status: "OK" | "WARNING" | "OVER";
+};
+
+export type FlatBudgetData = {
+  flatId: number;
+  totalLimit: number;
+  totalSpent: number;
+  totalPercentUsed: number;
+  alerts: string[];
+  categories: CategoryBudget[];
+};
+
+export const BudgetApi = {
+  get: (flatId: number) => api.get<FlatBudgetData>(`/flats/${flatId}/budget`),
+  update: (flatId: number, budgets: { category: string; amountLimit: number }[]) =>
+    api.post<{ message: string }>(`/flats/${flatId}/budget`, { budgets }),
+};
+
 export const ShoppingApi = {
   list: (flatId: number) => api.get<ShoppingItem[]>(`/flats/${flatId}/shopping`),
   add: (flatId: number, title: string, quantity?: string) => api.post<ShoppingItem>(`/flats/${flatId}/shopping`, { title, quantity }),
