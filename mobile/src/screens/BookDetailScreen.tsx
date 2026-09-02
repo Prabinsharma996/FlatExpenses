@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../navigation/types";
 import { BookApi, ExpenseApi } from "../api/endpoints";
@@ -68,13 +69,22 @@ export default function BookDetailScreen({ route, navigation }: Props) {
     ]);
   }
 
-  async function handleDeleteExpense(expenseId: number) {
-    try {
-      await ExpenseApi.remove(expenseId);
-      load();
-    } catch (err) {
-      Alert.alert("Couldn't delete expense", apiErrorMessage(err));
-    }
+  function handleDeleteExpense(expenseId: number) {
+    Alert.alert("Delete Expense?", "Are you sure you want to remove this expense?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await ExpenseApi.remove(expenseId);
+            load();
+          } catch (err) {
+            Alert.alert("Couldn't delete expense", apiErrorMessage(err));
+          }
+        },
+      },
+    ]);
   }
 
   async function handleShareCsv() {
@@ -184,9 +194,22 @@ export default function BookDetailScreen({ route, navigation }: Props) {
               </Text>
             </View>
             {book.status === "OPEN" && (
-              <TouchableOpacity onPress={() => handleDeleteExpense(item.id)}>
-                <Text style={styles.deleteText}>Delete</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "flex-start" }}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("AddExpense", { bookId: item.bookId, flatId, expenseToEdit: item })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.75}
+                >
+                  <Feather name="edit-2" size={16} color={colors.accent} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteExpense(item.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.75}
+                >
+                  <Feather name="trash-2" size={16} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
             )}
           </GlassCard>
         )}

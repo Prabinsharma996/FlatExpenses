@@ -108,3 +108,20 @@ export type Poll = {
   options: PollOption[];
   myOptionId: number | null;
 };
+
+export type ChoreFrequency = "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+
+export type Chore = {
+  id: number;
+  flatId: number;
+  title: string;
+  description: string | null;
+  frequency: ChoreFrequency;
+  assignedUserId: number | null;
+  createdBy: number;
+  isCompleted: boolean;
+  dueDate: string | null;
+  createdAt: string;
+  assignedUser?: { id: number; name: string; email: string } | null;
+  creator: { id: number; name: string; email: string };
+};

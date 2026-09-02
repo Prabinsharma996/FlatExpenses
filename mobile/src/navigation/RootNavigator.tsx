@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { Feather } from "@expo/vector-icons";
 import type { AuthStackParamList, AppStackParamList } from "./types";
 import Screen from "../components/Screen";
 
+import OnboardingScreen from "../screens/OnboardingScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import FlatsScreen from "../screens/FlatsScreen";
@@ -23,8 +25,24 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 
 function AuthNavigator() {
+  const [initialRoute, setInitialRoute] = useState<"Onboarding" | "Login" | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem("@onboarding_seen");
+        setInitialRoute(seen === "true" ? "Login" : "Onboarding");
+      } catch {
+        setInitialRoute("Onboarding");
+      }
+    })();
+  }, []);
+
+  if (!initialRoute) return null;
+
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>

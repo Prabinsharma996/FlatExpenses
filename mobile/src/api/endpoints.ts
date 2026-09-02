@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Book, BookDetail, Expense, Flat, FlatBalances, FlatMember, FlatReport, GroupType, Poll, SplitType, User } from "../types";
+import { Book, BookDetail, Chore, ChoreFrequency, Expense, Flat, FlatBalances, FlatMember, FlatReport, GroupType, Poll, SplitType, User } from "../types";
 
 export const AuthApi = {
   register: (name: string, email: string, password: string) =>
@@ -42,6 +42,8 @@ export const ExpenseApi = {
   list: (bookId: number) => api.get<Expense[]>(`/books/${bookId}/expenses`),
   create: (bookId: number, payload: CreateExpensePayload) =>
     api.post<Expense>(`/books/${bookId}/expenses`, payload),
+  update: (expenseId: number, payload: CreateExpensePayload) =>
+    api.put<Expense>(`/expenses/${expenseId}`, payload),
   remove: (expenseId: number) => api.delete(`/expenses/${expenseId}`),
 };
 
@@ -51,4 +53,20 @@ export const PollApi = {
     api.post<Poll>(`/flats/${flatId}/polls`, { question, options }),
   vote: (pollId: number, optionId: number) => api.post<Poll>(`/polls/${pollId}/vote`, { optionId }),
   close: (pollId: number) => api.post<Poll>(`/polls/${pollId}/close`),
+};
+
+export type CreateChorePayload = {
+  title: string;
+  description?: string;
+  frequency?: ChoreFrequency;
+  assignedUserId?: number | null;
+};
+
+export const ChoreApi = {
+  list: (flatId: number) => api.get<Chore[]>(`/flats/${flatId}/chores`),
+  create: (flatId: number, payload: CreateChorePayload) =>
+    api.post<Chore>(`/flats/${flatId}/chores`, payload),
+  toggle: (choreId: number) => api.patch<Chore>(`/chores/${choreId}/toggle`),
+  rotate: (choreId: number) => api.post<Chore>(`/chores/${choreId}/rotate`),
+  remove: (choreId: number) => api.delete(`/chores/${choreId}`),
 };

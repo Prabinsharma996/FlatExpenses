@@ -8,6 +8,7 @@ import {
   Alert,
   View,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
@@ -48,77 +49,87 @@ export default function RegisterScreen({ navigation }: Props) {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.brandWrap}>
-          <View style={[styles.logoMark, { backgroundColor: colors.accentSoft }]}>
-            <Feather name="user-plus" size={26} color={colors.accent} />
-          </View>
-          <Text style={styles.brand}>Create account</Text>
-          <Text style={styles.tagline}>Join FlatSplit and start splitting fairly</Text>
-        </View>
-
-        <GlassCard strong style={styles.card}>
-          <Text style={styles.cardTitle}>Get started</Text>
-
-          {/* Name */}
-          <Text style={styles.inputLabel}>Full Name</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="user" size={16} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-              placeholder="Your full name"
-              placeholderTextColor={colors.textTertiary}
-              value={name}
-              onChangeText={setName}
-            />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brandWrap}>
+            <View style={[styles.logoMark, { backgroundColor: colors.accentSoft }]}>
+              <Feather name="user-plus" size={26} color={colors.accent} />
+            </View>
+            <Text style={styles.brand}>Create account</Text>
+            <Text style={styles.tagline}>Join FlatSplit and start splitting fairly</Text>
           </View>
 
-          {/* Email */}
-          <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="mail" size={16} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.textTertiary}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
+          <GlassCard strong style={styles.card}>
+            <Text style={styles.cardTitle}>Get started</Text>
 
-          {/* Password */}
-          <Text style={[styles.inputLabel, { marginTop: 14 }]}>Password</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-              placeholder="Min 6 characters"
-              placeholderTextColor={colors.textTertiary}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword((v) => !v)}
-              style={styles.eyeBtn}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name={showPassword ? "eye-off" : "eye"}
-                size={18}
-                color={colors.textSecondary}
+            {/* Name */}
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="user" size={16} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+                placeholder="Your full name"
+                placeholderTextColor={colors.textTertiary}
+                value={name}
+                onChangeText={setName}
               />
+            </View>
+
+            {/* Email */}
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Email</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="mail" size={16} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            {/* Password */}
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Password</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="lock" size={16} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+                placeholder="Min 6 characters"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeBtn}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <GlassButton label="Sign Up" onPress={handleRegister} loading={loading} style={styles.button} />
+
+            <TouchableOpacity onPress={() => navigation.navigate("Login")} activeOpacity={0.7}>
+              <Text style={styles.link}>Already have an account? <Text style={{ color: colors.accent }}>Log in</Text></Text>
             </TouchableOpacity>
-          </View>
-
-          <GlassButton label="Sign Up" onPress={handleRegister} loading={loading} style={styles.button} />
-
-          <TouchableOpacity onPress={() => navigation.navigate("Login")} activeOpacity={0.7}>
-            <Text style={styles.link}>Already have an account? <Text style={{ color: colors.accent }}>Log in</Text></Text>
-          </TouchableOpacity>
-        </GlassCard>
+          </GlassCard>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -126,7 +137,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
 function makeStyles(c: Palette) {
   return StyleSheet.create({
-    container: { flex: 1, justifyContent: "center", padding: 24 },
+    scrollContainer: { flexGrow: 1, justifyContent: "center", padding: 24 },
     brandWrap: { alignItems: "center", marginBottom: 32 },
     logoMark: {
       width: 64,

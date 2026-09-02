@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -44,22 +45,26 @@ const SPLIT_OPTIONS: { value: SplitType; label: string; desc: string }[] = [
 ];
 
 export default function AddExpenseScreen({ route, navigation }: Props) {
-  const { bookId, flatId } = route.params;
+  const { bookId, flatId, expenseToEdit } = route.params;
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [flat, setFlat] = useState<Flat | null>(null);
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
-  const [remarks, setRemarks] = useState("");
-  const [paidById, setPaidById] = useState<number | null>(null);
+  const [amount, setAmount] = useState(expenseToEdit ? String(expenseToEdit.amount) : "");
+  const [category, setCategory] = useState(expenseToEdit ? expenseToEdit.category : "");
+  const [remarks, setRemarks] = useState(expenseToEdit ? expenseToEdit.remarks ?? "" : "");
+  const [paidById, setPaidById] = useState<number | null>(expenseToEdit ? expenseToEdit.paidById : null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [splitType, setSplitType] = useState<SplitType>("EQUAL");
   const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
   const [percentages, setPercentages] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [showPaidByModal, setShowPaidByModal] = useState(false);
+
+  useEffect(() => {
+    navigation.setOptions({ title: expenseToEdit ? "Edit Expense" : "Add Expense" });
+  }, [expenseToEdit, navigation]);
 
   const totalPercentage = useMemo(() => {
     return Array.from(selectedIds).reduce((sum, id) => sum + Number(percentages[id] || 0), 0);
@@ -72,14 +77,24 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
       try {
         const { data } = await FlatApi.detail(flatId);
         setFlat(data);
-        const allIds = data.members.map((m) => m.userId);
-        setSelectedIds(new Set(allIds));
-        setPaidById(user?.id ?? allIds[0] ?? null);
+        if (expenseToEdit) {
+          const participantIds = expenseToEdit.splits.map((s) => s.userId);
+          setSelectedIds(new Set(participantIds));
+          const exactMap: Record<number, string> = {};
+          expenseToEdit.splits.forEach((s) => {
+            exactMap[s.userId] = String(s.shareAmount);
+          });
+          setExactAmounts(exactMap);
+        } else {
+          const allIds = data.members.map((m) => m.userId);
+          setSelectedIds(new Set(allIds));
+          setPaidById(user?.id ?? allIds[0] ?? null);
+        }
       } catch (err) {
         Alert.alert("Couldn't load flat members", apiErrorMessage(err));
       }
     })();
-  }, [flatId, user?.id]);
+  }, [flatId, user?.id, expenseToEdit]);
 
   function toggleMember(userId: number) {
     setSelectedIds((prev) => {
@@ -120,17 +135,28 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
 
     setLoading(true);
     try {
-      await ExpenseApi.create(bookId, {
-        amount: numericAmount,
-        category: category.trim(),
-        remarks: remarks.trim() || undefined,
-        paidById,
-        splitType,
-        participants,
-      });
+      if (expenseToEdit) {
+        await ExpenseApi.update(expenseToEdit.id, {
+          amount: numericAmount,
+          category: category.trim(),
+          remarks: remarks.trim() || undefined,
+          paidById,
+          splitType,
+          participants,
+        });
+      } else {
+        await ExpenseApi.create(bookId, {
+          amount: numericAmount,
+          category: category.trim(),
+          remarks: remarks.trim() || undefined,
+          paidById,
+          splitType,
+          participants,
+        });
+      }
       navigation.goBack();
     } catch (err) {
-      Alert.alert("Couldn't add expense", apiErrorMessage(err));
+      Alert.alert(expenseToEdit ? "Couldn't update expense" : "Couldn't add expense", apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -142,11 +168,16 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
 
   return (
     <Screen edges={["bottom"]}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* ── Amount ── */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Text style={styles.sectionLabel}>Amount (₹)</Text>
@@ -356,15 +387,20 @@ export default function AddExpenseScreen({ route, navigation }: Props) {
           activeOpacity={0.85}
         >
           {loading ? (
-            <Text style={[styles.submitText, { color: colors.onAccent }]}>Adding…</Text>
+            <Text style={[styles.submitText, { color: colors.onAccent }]}>
+              {expenseToEdit ? "Saving…" : "Adding…"}
+            </Text>
           ) : (
             <>
-              <Feather name="plus-circle" size={18} color={colors.onAccent} />
-              <Text style={[styles.submitText, { color: colors.onAccent }]}>Add Expense</Text>
+              <Feather name={expenseToEdit ? "check-circle" : "plus-circle"} size={18} color={colors.onAccent} />
+              <Text style={[styles.submitText, { color: colors.onAccent }]}>
+                {expenseToEdit ? "Save Changes" : "Add Expense"}
+              </Text>
             </>
           )}
         </TouchableOpacity>
       </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* Paid By Modal */}
       <Modal visible={showPaidByModal} transparent animationType="slide">

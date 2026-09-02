@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../navigation/types";
 import { FlatApi } from "../api/endpoints";
@@ -42,14 +42,22 @@ export default function CreateFlatScreen({ navigation, route }: Props) {
   }
 
   return (
-    <Screen edges={["bottom"]} contentStyle={styles.content}>
-      <FlatOnboardingForm
-        initialTab={route.params?.initialTab ?? "create"}
-        creating={creating}
-        joining={joining}
-        onCreate={handleCreate}
-        onJoin={handleJoin}
-      />
+    <Screen edges={["bottom"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <FlatOnboardingForm
+            initialTab={route.params?.initialTab ?? "create"}
+            creating={creating}
+            joining={joining}
+            onCreate={handleCreate}
+            onJoin={handleJoin}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

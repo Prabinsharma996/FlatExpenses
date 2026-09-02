@@ -8,6 +8,7 @@ import {
   Alert,
   View,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
@@ -47,67 +48,78 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <Screen>
       <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        {/* Branding */}
-        <View style={styles.brandWrap}>
-          <View style={[styles.logoMark, { backgroundColor: colors.accentSoft }]}>
-            <Feather name="home" size={28} color={colors.accent} />
-          </View>
-          <Text style={styles.brand}>FlatSplit</Text>
-          <Text style={styles.tagline}>Track and split flat expenses with your roommates</Text>
-        </View>
-
-        <GlassCard strong style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome back</Text>
-
-          {/* Email */}
-          <Text style={styles.inputLabel}>Email</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="mail" size={16} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.textTertiary}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Branding */}
+          <View style={styles.brandWrap}>
+            <View style={[styles.logoMark, { backgroundColor: colors.accentSoft }]}>
+              <Feather name="home" size={28} color={colors.accent} />
+            </View>
+            <Text style={styles.brand}>FlatSplit</Text>
+            <Text style={styles.tagline}>Track and split flat expenses with your roommates</Text>
           </View>
 
-          {/* Password */}
-          <Text style={[styles.inputLabel, { marginTop: 14 }]}>Password</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
-              placeholder="Enter your password"
-              placeholderTextColor={colors.textTertiary}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword((v) => !v)}
-              style={styles.eyeBtn}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name={showPassword ? "eye-off" : "eye"}
-                size={18}
-                color={colors.textSecondary}
+          <GlassCard strong style={styles.card}>
+            <Text style={styles.cardTitle}>Welcome back</Text>
+
+            {/* Email */}
+            <Text style={styles.inputLabel}>Email</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="mail" size={16} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
               />
+            </View>
+
+            {/* Password */}
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Password</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="lock" size={16} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.input, borderColor: colors.inputBorder }]}
+                placeholder="Enter your password"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeBtn}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <GlassButton label="Log In" onPress={handleLogin} loading={loading} style={styles.button} />
+
+            <TouchableOpacity onPress={() => navigation.navigate("Register")} activeOpacity={0.7}>
+              <Text style={styles.link}>Don't have an account? <Text style={{ color: colors.accent }}>Sign up</Text></Text>
             </TouchableOpacity>
-          </View>
 
-          <GlassButton label="Log In" onPress={handleLogin} loading={loading} style={styles.button} />
-
-          <TouchableOpacity onPress={() => navigation.navigate("Register")} activeOpacity={0.7}>
-            <Text style={styles.link}>Don't have an account? <Text style={{ color: colors.accent }}>Sign up</Text></Text>
-          </TouchableOpacity>
-        </GlassCard>
+            <TouchableOpacity onPress={() => navigation.navigate("Onboarding")} activeOpacity={0.7} style={{ marginTop: 14 }}>
+              <Text style={[styles.link, { fontSize: 12, color: colors.textSecondary }]}>✨ See app features & guide</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -115,7 +127,7 @@ export default function LoginScreen({ navigation }: Props) {
 
 function makeStyles(c: Palette) {
   return StyleSheet.create({
-    container: { flex: 1, justifyContent: "center", padding: 24 },
+    scrollContainer: { flexGrow: 1, justifyContent: "center", padding: 24 },
     brandWrap: { alignItems: "center", marginBottom: 32 },
     logoMark: {
       width: 64,

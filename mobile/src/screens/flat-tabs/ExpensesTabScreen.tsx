@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -8,9 +8,9 @@ import GlassCard from "../../components/GlassCard";
 import GlassButton from "../../components/GlassButton";
 import GlassInput from "../../components/GlassInput";
 import EmptyState from "../../components/EmptyState";
-import FilterDropdown from "../../components/FilterDropdown";
+import MultiFilterDropdown from "../../components/MultiFilterDropdown";
 import { useFlat } from "../../context/FlatContext";
-import { BookApi, FlatApi } from "../../api/endpoints";
+import { BookApi, ExpenseApi, FlatApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { Book, Expense, Flat } from "../../types";
 import { Palette } from "../../theme/colors";
@@ -20,7 +20,7 @@ import type { AppStackParamList } from "../../navigation/types";
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 export default function ExpensesTabScreen() {
-  const { flatId, flatName } = useFlat();
+  const { flatId } = useFlat();
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -32,9 +32,9 @@ export default function ExpensesTabScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [paidByFilter, setPaidByFilter] = useState<number | null>(null);
-  const [addedByFilter, setAddedByFilter] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [paidByFilter, setPaidByFilter] = useState<number[]>([]);
+  const [addedByFilter, setAddedByFilter] = useState<number[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -76,20 +76,20 @@ export default function ExpensesTabScreen() {
 
   const categoryOptions = useMemo(() => {
     const cats = Array.from(new Set(expenses.map((e) => e.category))).sort((a, b) => a.localeCompare(b));
-    return [{ value: null, label: "All Categories" }, ...cats.map((c) => ({ value: c, label: c }))];
+    return cats.map((c) => ({ value: c, label: c }));
   }, [expenses]);
 
   const memberOptions = useMemo(() => {
     const members = flat?.members ?? [];
-    return [{ value: null, label: "Everyone" }, ...members.map((m) => ({ value: m.userId, label: m.user.name }))];
+    return members.map((m) => ({ value: m.userId, label: m.user.name }));
   }, [flat]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return expenses.filter((e) => {
-      if (categoryFilter != null && e.category !== categoryFilter) return false;
-      if (paidByFilter != null && e.paidById !== paidByFilter) return false;
-      if (addedByFilter != null && e.addedById !== addedByFilter) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(e.category)) return false;
+      if (paidByFilter.length > 0 && !paidByFilter.includes(e.paidById)) return false;
+      if (addedByFilter.length > 0 && !addedByFilter.includes(e.addedById)) return false;
       if (q) {
         const haystack = `${e.category} ${e.remarks ?? ""} ${e.paidBy.name} ${e.addedBy.name}`.toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -98,21 +98,46 @@ export default function ExpensesTabScreen() {
     });
   }, [expenses, search, categoryFilter, paidByFilter, addedByFilter]);
 
-  const filteredTotal = filtered.reduce((sum, e) => sum + Number(e.amount), 0);
-  const filtersActive = !!search || categoryFilter != null || paidByFilter != null || addedByFilter != null;
+  const filteredTotal = useMemo(() => {
+    return filtered.reduce((sum, e) => sum + Number(e.amount), 0);
+  }, [filtered]);
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    categoryFilter.length > 0 ||
+    paidByFilter.length > 0 ||
+    addedByFilter.length > 0;
+
+  function handleDeleteExpense(expenseId: number) {
+    Alert.alert("Delete Expense?", "Are you sure you want to remove this expense?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await ExpenseApi.remove(expenseId);
+            setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+          } catch (err) {
+            Alert.alert("Couldn't delete expense", apiErrorMessage(err));
+          }
+        },
+      },
+    ]);
+  }
 
   return (
     <Screen edges={[]}>
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>Expenses</Text>
-          <Text style={styles.subtitle}>
-            {filtered.length} expense{filtered.length === 1 ? "" : "s"} · ₹{filteredTotal.toFixed(2)} total
-          </Text>
+          <Text style={styles.subtitle}>View & split expenses with flat members</Text>
         </View>
         <GlassButton label="Add" icon="＋" onPress={handleAdd} style={styles.addBtn} />
       </View>
 
+      {/* ── Search Bar ── */}
       <View style={styles.searchRow}>
         <Feather name="search" size={16} color={colors.textTertiary} style={styles.searchIcon} />
         <GlassInput
@@ -123,12 +148,89 @@ export default function ExpensesTabScreen() {
         />
       </View>
 
+      {/* ── Multi-Select Filters Row ── */}
       <View style={styles.filterRow}>
-        <FilterDropdown label="Category" icon="filter" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
-        <FilterDropdown label="Paid By" icon="user" value={paidByFilter} options={memberOptions} onChange={setPaidByFilter} />
-        <FilterDropdown label="Added By" icon="user" value={addedByFilter} options={memberOptions} onChange={setAddedByFilter} />
+        <MultiFilterDropdown
+          label="Category"
+          icon="filter"
+          selectedValues={categoryFilter}
+          options={categoryOptions}
+          onChange={setCategoryFilter}
+        />
+        <MultiFilterDropdown
+          label="Paid By"
+          icon="user"
+          selectedValues={paidByFilter}
+          options={memberOptions}
+          onChange={setPaidByFilter}
+        />
+        <MultiFilterDropdown
+          label="Added By"
+          icon="user-check"
+          selectedValues={addedByFilter}
+          options={memberOptions}
+          onChange={setAddedByFilter}
+        />
       </View>
 
+      {/* ── Total Sum Banner / Summary Card ── */}
+      <View style={styles.summaryContainer}>
+        <GlassCard style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>
+                {hasActiveFilters ? "FILTERED EXPENSES TOTAL" : "TOTAL EXPENSES AMOUNT"}
+              </Text>
+              <Text style={styles.summaryValue}>
+                ₹{filteredTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={styles.summaryRight}>
+              <View style={[styles.countBadge, { backgroundColor: colors.accentSoft }]}>
+                <Text style={[styles.countBadgeText, { color: colors.accent }]}>
+                  {filtered.length} {filtered.length === 1 ? "expense" : "expenses"}
+                </Text>
+              </View>
+              {hasActiveFilters && (
+                <TouchableOpacity style={styles.clearBtn} onPress={clearAllFilters} activeOpacity={0.75}>
+                  <Feather name="rotate-ccw" size={12} color={colors.danger} />
+                  <Text style={[styles.clearBtnText, { color: colors.danger }]}>Reset</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Active Filter Badges */}
+          {hasActiveFilters && (
+            <View style={styles.activePillsContainer}>
+              {paidByFilter.length > 0 && (
+                <View style={[styles.activePill, { backgroundColor: colors.input }]}>
+                  <Text style={[styles.activePillText, { color: colors.textPrimary }]}>
+                    Paid: {paidByFilter.map((id) => flat?.members.find((m) => m.userId === id)?.user.name).filter(Boolean).join(", ")}
+                  </Text>
+                </View>
+              )}
+              {addedByFilter.length > 0 && (
+                <View style={[styles.activePill, { backgroundColor: colors.input }]}>
+                  <Text style={[styles.activePillText, { color: colors.textPrimary }]}>
+                    Added: {addedByFilter.map((id) => flat?.members.find((m) => m.userId === id)?.user.name).filter(Boolean).join(", ")}
+                  </Text>
+                </View>
+              )}
+              {categoryFilter.length > 0 && (
+                <View style={[styles.activePill, { backgroundColor: colors.input }]}>
+                  <Text style={[styles.activePillText, { color: colors.textPrimary }]}>
+                    Cat: {categoryFilter.join(", ")}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </GlassCard>
+      </View>
+
+      {/* ── Expense List ── */}
       <FlatList
         data={filtered}
         keyExtractor={(e) => String(e.id)}
@@ -138,8 +240,8 @@ export default function ExpensesTabScreen() {
           loaded ? (
             <EmptyState
               icon="file-text"
-              title="No expenses yet"
-              subtitle={filtersActive ? "Adjust filters or tap Add to record an expense" : "Tap Add to record your first expense"}
+              title="No expenses found"
+              subtitle={hasActiveFilters ? "Try adjusting your filters or search term" : "Tap Add to record your first expense"}
             />
           ) : (
             <ActivityIndicator color={colors.accent} style={{ marginTop: 30 }} />
@@ -152,14 +254,34 @@ export default function ExpensesTabScreen() {
               <Text style={styles.expenseAmount}>₹{Number(item.amount).toFixed(2)}</Text>
             </View>
             <Text style={styles.expenseMeta}>
-              Paid by {item.paidBy.name} · Added by {item.addedBy.name} · {new Date(item.createdAt).toLocaleDateString()}
+              Paid by <Text style={{ fontWeight: "700" }}>{item.paidBy.name}</Text> · Added by <Text style={{ fontWeight: "700" }}>{item.addedBy.name}</Text> · {new Date(item.createdAt).toLocaleDateString()}
             </Text>
             {!!item.remarks && <Text style={styles.expenseRemarks}>{item.remarks}</Text>}
             <View style={styles.expenseFooter}>
               <View style={[styles.bookBadge, item.book?.status === "CLOSED" && styles.bookBadgeClosed]}>
                 <Text style={styles.bookBadgeText}>{item.book?.name ?? "Book"}</Text>
               </View>
-              <Text style={styles.splitText}>Split {item.splits.length} way{item.splits.length === 1 ? "" : "s"}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Text style={styles.splitText}>Split {item.splits.length} way{item.splits.length === 1 ? "" : "s"}</Text>
+                {item.book?.status !== "CLOSED" && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate("AddExpense", { bookId: item.bookId, flatId, expenseToEdit: item })}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.75}
+                    >
+                      <Feather name="edit-2" size={14} color={colors.accent} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteExpense(item.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.75}
+                    >
+                      <Feather name="trash-2" size={14} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
           </GlassCard>
         )}
@@ -170,18 +292,47 @@ export default function ExpensesTabScreen() {
 
 function makeStyles(c: Palette) {
   return StyleSheet.create({
-    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingHorizontal: 20, paddingTop: 16 },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      paddingHorizontal: 20,
+      paddingTop: 16,
+    },
     title: { fontSize: 22, fontWeight: "800", color: c.textPrimary },
-    subtitle: { fontSize: 12, color: c.textSecondary, marginTop: 4 },
+    subtitle: { fontSize: 12, color: c.textSecondary, marginTop: 2 },
     addBtn: { paddingHorizontal: 16, paddingVertical: 10 },
 
-    searchRow: { position: "relative", justifyContent: "center", paddingHorizontal: 20, marginTop: 16 },
+    searchRow: { position: "relative", justifyContent: "center", paddingHorizontal: 20, marginTop: 14 },
     searchIcon: { position: "absolute", left: 32, zIndex: 1 },
     searchInput: { paddingLeft: 38 },
 
-    filterRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginTop: 12 },
+    filterRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginTop: 10 },
 
-    list: { padding: 20, paddingTop: 16, paddingBottom: 40, gap: 12 },
+    summaryContainer: { paddingHorizontal: 20, marginTop: 12 },
+    summaryCard: { padding: 14 },
+    summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    summaryLabel: { fontSize: 11, fontWeight: "800", color: c.textSecondary, letterSpacing: 0.5 },
+    summaryValue: { fontSize: 24, fontWeight: "800", color: c.accent, marginTop: 2 },
+    summaryRight: { alignItems: "flex-end", gap: 6 },
+    countBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
+    countBadgeText: { fontSize: 12, fontWeight: "700" },
+    clearBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 2 },
+    clearBtnText: { fontSize: 12, fontWeight: "700" },
+
+    activePillsContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: 10,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: c.divider,
+    },
+    activePill: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 },
+    activePillText: { fontSize: 11, fontWeight: "600" },
+
+    list: { padding: 20, paddingTop: 12, paddingBottom: 40, gap: 12 },
 
     expenseCard: {},
     expenseTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

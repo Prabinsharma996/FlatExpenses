@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Text, StyleSheet, Alert } from "react-native";
+import { Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../navigation/types";
 import { BookApi } from "../api/endpoints";
@@ -35,11 +35,22 @@ export default function CreateBookScreen({ route, navigation }: Props) {
 
   return (
     <Screen edges={["bottom"]}>
-      <GlassCard strong style={styles.card}>
-        <Text style={styles.label}>Book name</Text>
-        <GlassInput placeholder="e.g. July Groceries" value={name} onChangeText={setName} autoFocus style={styles.input} />
-        <GlassButton label="Create Book" onPress={handleCreate} loading={loading} disabled={!name.trim()} />
-      </GlassCard>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <GlassCard strong style={styles.card}>
+            <Text style={styles.label}>Book name</Text>
+            <GlassInput placeholder="e.g. July Groceries" value={name} onChangeText={setName} autoFocus style={styles.input} />
+            <GlassButton label="Create Book" onPress={handleCreate} loading={loading} disabled={!name.trim()} />
+          </GlassCard>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

@@ -130,8 +130,8 @@ export default function ProfileScreen({ navigation }: Props) {
     <Screen edges={["bottom"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={100}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {/* User Profile Header */}

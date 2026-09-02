@@ -24,6 +24,13 @@ enum FlatGroupType {
   OFFICE
 }
 
+enum ChoreFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
 model User {
   id           Int      @id @default(autoincrement())
   name         String
@@ -33,16 +40,18 @@ model User {
   isGuest      Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  flatsAdmin    Flat[]         @relation("FlatAdmin")
-  flatMembers   FlatMember[]
-  booksCreated  Book[]         @relation("BookCreator")
-  expensesPaid  Expense[]      @relation("ExpensePayer")
-  expensesAdded Expense[]      @relation("ExpenseAdder")
-  expenseSplits ExpenseSplit[]
-  settlementsFrom Settlement[] @relation("SettlementFrom")
-  settlementsTo   Settlement[] @relation("SettlementTo")
-  pollsCreated  Poll[]         @relation("PollCreator")
-  pollVotes     PollVote[]     @relation("PollVoter")
+  flatsAdmin      Flat[]         @relation("FlatAdmin")
+  flatMembers     FlatMember[]
+  booksCreated    Book[]         @relation("BookCreator")
+  expensesPaid    Expense[]      @relation("ExpensePayer")
+  expensesAdded   Expense[]      @relation("ExpenseAdder")
+  expenseSplits   ExpenseSplit[]
+  settlementsFrom Settlement[]   @relation("SettlementFrom")
+  settlementsTo   Settlement[]   @relation("SettlementTo")
+  pollsCreated    Poll[]         @relation("PollCreator")
+  pollVotes       PollVote[]     @relation("PollVoter")
+  choresCreated   Chore[]        @relation("ChoreCreator")
+  choresAssigned  Chore[]        @relation("ChoreAssignee")
 }
 
 model Flat {
@@ -57,6 +66,7 @@ model Flat {
   members FlatMember[]
   books   Book[]
   polls   Poll[]
+  chores  Chore[]
 }
 
 model FlatMember {
@@ -164,4 +174,21 @@ model PollVote {
   user   User       @relation("PollVoter", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([pollId, userId])
+}
+
+model Chore {
+  id             Int            @id @default(autoincrement())
+  flatId         Int
+  title          String
+  description    String?
+  frequency      ChoreFrequency @default(WEEKLY)
+  assignedUserId Int?
+  createdBy      Int
+  isCompleted    Boolean        @default(false)
+  dueDate        DateTime?
+  createdAt      DateTime       @default(now())
+
+  flat         Flat  @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  creator      User  @relation("ChoreCreator", fields: [createdBy], references: [id])
+  assignedUser User? @relation("ChoreAssignee", fields: [assignedUserId], references: [id])
 }

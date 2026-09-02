@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import Screen from "../../components/Screen";
@@ -195,32 +195,37 @@ export default function VotingTabScreen() {
       />
 
       <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setFormOpen(false)}>
-          <Pressable style={styles.sheet}>
-            <Text style={styles.sheetTitle}>New Poll</Text>
-            <GlassInput placeholder="Question" value={question} onChangeText={setQuestion} style={styles.sheetInput} />
-            {options.map((opt, i) => (
-              <View key={i} style={styles.optionInputRow}>
-                <GlassInput
-                  placeholder={`Option ${i + 1}`}
-                  value={opt}
-                  onChangeText={(v) => updateOption(i, v)}
-                  style={styles.optionInput}
-                />
-                {options.length > 2 && (
-                  <TouchableOpacity onPress={() => removeOptionField(i)} style={styles.removeOptionBtn}>
-                    <Feather name="x" size={16} color={colors.textTertiary} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-            <TouchableOpacity onPress={addOptionField} style={styles.addOptionRow}>
-              <Feather name="plus" size={14} color={colors.accent} />
-              <Text style={styles.addOptionText}>Add option</Text>
-            </TouchableOpacity>
-            <GlassButton label="Create Poll" onPress={handleCreatePoll} loading={creating} style={styles.createBtn} />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable style={styles.backdrop} onPress={() => setFormOpen(false)}>
+            <Pressable style={styles.sheet}>
+              <Text style={styles.sheetTitle}>New Poll</Text>
+              <GlassInput placeholder="Question" value={question} onChangeText={setQuestion} style={styles.sheetInput} />
+              {options.map((opt, i) => (
+                <View key={i} style={styles.optionInputRow}>
+                  <GlassInput
+                    placeholder={`Option ${i + 1}`}
+                    value={opt}
+                    onChangeText={(v) => updateOption(i, v)}
+                    style={styles.optionInput}
+                  />
+                  {options.length > 2 && (
+                    <TouchableOpacity onPress={() => removeOptionField(i)} style={styles.removeOptionBtn}>
+                      <Feather name="x" size={16} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              <TouchableOpacity onPress={addOptionField} style={styles.addOptionRow}>
+                <Feather name="plus" size={14} color={colors.accent} />
+                <Text style={styles.addOptionText}>Add option</Text>
+              </TouchableOpacity>
+              <GlassButton label="Create Poll" onPress={handleCreatePoll} loading={creating} style={styles.createBtn} />
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );

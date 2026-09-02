@@ -11,9 +11,8 @@ import FlatHeader from "../components/FlatHeader";
 import HomeTabScreen from "./flat-tabs/HomeTabScreen";
 import ExpensesTabScreen from "./flat-tabs/ExpensesTabScreen";
 import BalancesTabScreen from "./flat-tabs/BalancesTabScreen";
-import MembersTabScreen from "./flat-tabs/MembersTabScreen";
 import BooksTabScreen from "./flat-tabs/BooksTabScreen";
-import VotingTabScreen from "./flat-tabs/VotingTabScreen";
+import MoreTabScreen from "./flat-tabs/MoreTabScreen";
 
 type Props = NativeStackScreenProps<AppStackParamList, "FlatDetail">;
 
@@ -23,9 +22,8 @@ const TAB_ICON: Record<keyof FlatTabParamList, keyof typeof Feather.glyphMap> = 
   Home: "home",
   Expenses: "dollar-sign",
   Balances: "repeat",
-  Members: "users",
   Books: "calendar",
-  Voting: "check-square",
+  More: "more-horizontal",
 };
 
 export default function FlatDetailScreen({ route }: Props) {
@@ -50,9 +48,8 @@ export default function FlatDetailScreen({ route }: Props) {
         <Tab.Screen name="Home" component={HomeTabScreen} />
         <Tab.Screen name="Expenses" component={ExpensesTabScreen} />
         <Tab.Screen name="Balances" component={BalancesTabScreen} />
-        <Tab.Screen name="Members" component={MembersTabScreen} />
         <Tab.Screen name="Books" component={BooksTabScreen} />
-        <Tab.Screen name="Voting" component={VotingTabScreen} />
+        <Tab.Screen name="More" component={MoreTabScreen} />
       </Tab.Navigator>
     </FlatProvider>
   );

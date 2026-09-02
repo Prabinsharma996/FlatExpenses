@@ -1,4 +1,7 @@
+import type { Expense } from "../types";
+
 export type AuthStackParamList = {
+  Onboarding: undefined;
   Login: undefined;
   Register: undefined;
 };
@@ -9,7 +12,7 @@ export type AppStackParamList = {
   FlatDetail: { flatId: number; flatName: string };
   CreateBook: { flatId: number };
   BookDetail: { bookId: number; bookName: string; flatId: number };
-  AddExpense: { bookId: number; flatId: number };
+  AddExpense: { bookId: number; flatId: number; expenseToEdit?: Expense };
   Profile: undefined;
 };
 
@@ -18,7 +21,6 @@ export type FlatTabParamList = {
   Home: undefined;
   Expenses: undefined;
   Balances: undefined;
-  Members: undefined;
   Books: undefined;
-  Voting: undefined;
+  More: undefined;
 };

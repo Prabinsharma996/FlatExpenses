@@ -107,6 +107,72 @@ router.get("/books/:bookId/expenses", async (req, res) => {
   res.json(expenses);
 });
 
+router.put("/expenses/:id", async (req, res) => {
+  const expenseId = Number(req.params.id);
+  const parsed = createExpenseSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const expense = await prisma.expense.findUnique({ where: { id: expenseId } });
+  if (!expense) return res.status(404).json({ error: "Expense not found" });
+
+  const { error, message, book } = await assertBookOpenAndMember(expense.bookId, req.userId);
+  if (error) return res.status(error).json({ error: message });
+
+  const isPayer = expense.paidById === req.userId;
+  const isAdder = expense.addedById === req.userId;
+  const isAdmin = await isFlatAdmin(book.flatId, req.userId);
+  if (!isPayer && !isAdder && !isAdmin) {
+    return res.status(403).json({ error: "Only the expense creator or flat admin can edit it" });
+  }
+
+  const { amount, category, remarks, splitType, participants } = parsed.data;
+  const paidById = parsed.data.paidById ?? expense.paidById;
+
+  const memberIds = new Set(
+    (await prisma.flatMember.findMany({ where: { flatId: book.flatId }, select: { userId: true } })).map(
+      (m) => m.userId
+    )
+  );
+  if (!memberIds.has(paidById)) return res.status(400).json({ error: "paidById is not a member of this flat" });
+  for (const p of participants) {
+    if (!memberIds.has(p.userId)) {
+      return res.status(400).json({ error: `Participant ${p.userId} is not a member of this flat` });
+    }
+  }
+
+  let splits;
+  try {
+    splits = computeSplits(amount, splitType, participants);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  await prisma.$transaction([
+    prisma.expenseSplit.deleteMany({ where: { expenseId } }),
+    prisma.expense.update({
+      where: { id: expenseId },
+      data: {
+        amount,
+        category,
+        remarks: remarks ?? null,
+        paidById,
+        splits: { create: splits.map((s) => ({ userId: s.userId, shareAmount: s.shareAmount })) },
+      },
+    }),
+  ]);
+
+  const updated = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    include: {
+      paidBy: { select: { id: true, name: true } },
+      addedBy: { select: { id: true, name: true } },
+      splits: { include: { user: { select: { id: true, name: true } } } },
+    },
+  });
+
+  res.json(updated);
+});
+
 router.delete("/expenses/:id", async (req, res) => {
   const expenseId = Number(req.params.id);
   const expense = await prisma.expense.findUnique({ where: { id: expenseId } });

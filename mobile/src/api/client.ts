@@ -1,9 +1,27 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 
-// Point this at your machine's LAN IP when testing on a physical device
-// (localhost won't resolve from a phone). e.g. "http://192.168.1.20:4000"
-export const API_BASE_URL = "http://192.168.1.73:4000";
+const getHostIp = (): string => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ||
+    (Constants as any).debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(":")[0];
+    if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
+      return ip;
+    }
+  }
+  return "192.168.1.75";
+};
+
+// On web: window.location.hostname; On phone/emulator: Metro host IP or 192.168.1.75
+export const API_BASE_URL =
+  Platform.OS === "web"
+    ? `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:4000`
+    : `http://${getHostIp()}:4000`;
 
 export const api = axios.create({ baseURL: API_BASE_URL, timeout: 10000 });
 
