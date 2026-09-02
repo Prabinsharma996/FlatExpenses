@@ -127,8 +127,8 @@ export type CategoryBudget = {
   status: "OK" | "WARNING" | "OVER";
 };
 
-export type FlatBudgetData = {
-  flatId: number;
+export type BookBudgetData = {
+  bookId: number;
   totalLimit: number;
   totalSpent: number;
   totalPercentUsed: number;
@@ -137,9 +137,9 @@ export type FlatBudgetData = {
 };
 
 export const BudgetApi = {
-  get: (flatId: number) => api.get<FlatBudgetData>(`/flats/${flatId}/budget`),
-  update: (flatId: number, budgets: { category: string; amountLimit: number }[]) =>
-    api.post<{ message: string }>(`/flats/${flatId}/budget`, { budgets }),
+  get: (bookId: number) => api.get<BookBudgetData>(`/books/${bookId}/budget`),
+  update: (bookId: number, budgets: { category: string; amountLimit: number }[]) =>
+    api.post<{ message: string }>(`/books/${bookId}/budget`, { budgets }),
 };
 
 export const ShoppingApi = {

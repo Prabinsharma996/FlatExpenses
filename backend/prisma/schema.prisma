@@ -79,7 +79,6 @@ model Flat {
   taskHistories   TaskHistory[]
   taskPreferences TaskPreference[]
   shoppingItems   ShoppingItem[]
-  budgets         FlatBudget[]
 }
 
 model FlatMember {
@@ -107,6 +106,7 @@ model Book {
   creator     User         @relation("BookCreator", fields: [createdBy], references: [id])
   expenses    Expense[]
   settlements Settlement[]
+  budgets     BookBudget[]
 }
 
 model Expense {
@@ -323,15 +323,15 @@ model ShoppingItem {
   boughtBy User? @relation("ShoppingBuyer", fields: [boughtById], references: [id])
 }
 
-model FlatBudget {
+model BookBudget {
   id          Int      @id @default(autoincrement())
-  flatId      Int
+  bookId      Int
   category    String
   amountLimit Decimal  @db.Decimal(10, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
-  @@unique([flatId, category])
+  @@unique([bookId, category])
 }

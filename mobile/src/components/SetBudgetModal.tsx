@@ -17,7 +17,7 @@ import GlassButton from "./GlassButton";
 
 type Props = {
   visible: boolean;
-  flatId: number;
+  bookId: number;
   existingBudgets: CategoryBudget[];
   onClose: () => void;
   onSaved: () => void;
@@ -30,7 +30,7 @@ type BudgetEntry = {
 
 export default function SetBudgetModal({
   visible,
-  flatId,
+  bookId,
   existingBudgets,
   onClose,
   onSaved,
@@ -100,8 +100,8 @@ export default function SetBudgetModal({
         amountLimit: parseFloat(e.amountLimit) || 0,
       }));
 
-      await BudgetApi.update(flatId, payload);
-      Alert.alert("Budget Updated! 💰", "Household monthly budget saved successfully!");
+      await BudgetApi.update(bookId, payload);
+      Alert.alert("Book Budget Updated! 💰", "Book budget saved successfully!");
       onSaved();
       onClose();
     } catch (err: any) {
@@ -120,7 +120,7 @@ export default function SetBudgetModal({
             <View style={styles.titleRow}>
               <Text style={{ fontSize: 22 }}>💰</Text>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                Monthly Household Budget
+                Book Budget
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} activeOpacity={0.7}>

@@ -13,59 +13,60 @@ const DEFAULT_CATEGORIES = [
   { category: "Other", defaultLimit: 2000 },
 ];
 
-// Verify flat membership helper
-async function checkMember(flatId, userId) {
-  const member = await prisma.flatMember.findUnique({
-    where: { flatId_userId: { flatId: Number(flatId), userId: Number(userId) } },
+// Helper: Check membership via bookId
+async function checkBookMember(bookId, userId) {
+  const book = await prisma.book.findUnique({
+    where: { id: Number(bookId) },
+    select: { flatId: true },
   });
-  return !!member;
+  if (!book) return null;
+
+  const member = await prisma.flatMember.findUnique({
+    where: { flatId_userId: { flatId: book.flatId, userId: Number(userId) } },
+  });
+  return member ? book.flatId : null;
 }
 
-// GET /api/flats/:flatId/budget
-router.get("/:flatId/budget", requireAuth, async (req, res) => {
+// GET /api/books/:bookId/budget
+router.get("/:bookId/budget", requireAuth, async (req, res) => {
   try {
-    const flatId = Number(req.params.flatId);
-    if (!await checkMember(flatId, req.userId)) {
-      return res.status(403).json({ error: "Access denied to this flat" });
+    const bookId = Number(req.params.bookId);
+    const flatId = await checkBookMember(bookId, req.userId);
+    if (!flatId) {
+      return res.status(403).json({ error: "Access denied or book not found" });
     }
 
-    // 1. Fetch saved budget limits
-    let savedBudgets = await prisma.flatBudget.findMany({
-      where: { flatId },
+    // 1. Fetch saved budget limits for this book
+    let savedBudgets = await prisma.bookBudget.findMany({
+      where: { bookId },
     });
 
     // If no budgets saved yet, populate default categories
     if (savedBudgets.length === 0) {
       await Promise.all(
         DEFAULT_CATEGORIES.map((cat) =>
-          prisma.flatBudget.create({
+          prisma.bookBudget.create({
             data: {
-              flatId,
+              bookId,
               category: cat.category,
               amountLimit: cat.defaultLimit,
             },
           })
         )
       );
-      savedBudgets = await prisma.flatBudget.findMany({ where: { flatId } });
+      savedBudgets = await prisma.bookBudget.findMany({ where: { bookId } });
     }
 
-    // 2. Fetch expenses for current month in OPEN books (or all open expenses)
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
+    // 2. Fetch all expenses in this specific book
     const expenses = await prisma.expense.findMany({
-      where: {
-        book: { flatId, status: "OPEN" },
-        createdAt: { gte: startOfMonth },
-      },
+      where: { bookId },
       select: {
         amount: true,
         category: true,
       },
     });
 
-    // Aggregate spending per category
+    // Aggregate spending per category for this book
     const spentByCategory = {};
     let totalSpent = 0;
 
@@ -92,7 +93,7 @@ router.get("/:flatId/budget", requireAuth, async (req, res) => {
         alerts.push(`🚨 ${b.category} budget exceeded (${percentUsed}%)!`);
       } else if (percentUsed >= 80) {
         status = "WARNING";
-        alerts.push(`⚠️ ${b.category} spending is already ${percentUsed}% of the monthly budget.`);
+        alerts.push(`⚠️ ${b.category} spending is already ${percentUsed}% of the book budget.`);
       }
 
       return {
@@ -105,11 +106,10 @@ router.get("/:flatId/budget", requireAuth, async (req, res) => {
       };
     });
 
-    // Check for categories spent but not in defined budgets
+    // Include categories spent in book but not in predefined budget limits
     Object.keys(spentByCategory).forEach((cat) => {
       if (!savedBudgets.some((b) => b.category === cat)) {
         const spent = spentByCategory[cat];
-        totalSpent += 0; // already added above
         categoryBudgets.push({
           id: 0,
           category: cat,
@@ -124,7 +124,7 @@ router.get("/:flatId/budget", requireAuth, async (req, res) => {
     const totalPercentUsed = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
 
     res.json({
-      flatId,
+      bookId,
       totalLimit,
       totalSpent,
       totalPercentUsed,
@@ -132,17 +132,18 @@ router.get("/:flatId/budget", requireAuth, async (req, res) => {
       categories: categoryBudgets,
     });
   } catch (err) {
-    console.error("Error fetching budget:", err);
+    console.error("Error fetching book budget:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/flats/:flatId/budget
-router.post("/:flatId/budget", requireAuth, async (req, res) => {
+// POST /api/books/:bookId/budget
+router.post("/:bookId/budget", requireAuth, async (req, res) => {
   try {
-    const flatId = Number(req.params.flatId);
-    if (!await checkMember(flatId, req.userId)) {
-      return res.status(403).json({ error: "Access denied to this flat" });
+    const bookId = Number(req.params.bookId);
+    const flatId = await checkBookMember(bookId, req.userId);
+    if (!flatId) {
+      return res.status(403).json({ error: "Access denied or book not found" });
     }
 
     const { budgets } = req.body; // Array of { category, amountLimit }
@@ -154,18 +155,18 @@ router.post("/:flatId/budget", requireAuth, async (req, res) => {
       const category = String(b.category).trim();
       const amountLimit = Number(b.amountLimit) || 0;
 
-      return prisma.flatBudget.upsert({
-        where: { flatId_category: { flatId, category } },
+      return prisma.bookBudget.upsert({
+        where: { bookId_category: { bookId, category } },
         update: { amountLimit },
-        create: { flatId, category, amountLimit },
+        create: { bookId, category, amountLimit },
       });
     });
 
     await Promise.all(upsertPromises);
 
-    res.json({ message: "Monthly household budget updated successfully!" });
+    res.json({ message: "Book budget updated successfully!" });
   } catch (err) {
-    console.error("Error updating budget:", err);
+    console.error("Error updating book budget:", err);
     res.status(500).json({ error: err.message });
   }
 });

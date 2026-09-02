@@ -20,7 +20,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use("/auth", authRoutes);
 app.use("/flats", flatRoutes);
-app.use("/flats", budgetRoutes);
+app.use("/", budgetRoutes); // exposes /books/:bookId/budget
 app.use("/", bookRoutes); // exposes /flats/:flatId/books and /books/:id...
 app.use("/", expenseRoutes); // exposes /books/:bookId/expenses and /expenses/:id
 app.use("/", pollRoutes); // exposes /flats/:flatId/polls and /polls/:id/...

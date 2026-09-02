@@ -10,7 +10,7 @@ import EmptyState from "../../components/EmptyState";
 import FilterDropdown from "../../components/FilterDropdown";
 import SetBudgetModal from "../../components/SetBudgetModal";
 import { useFlat } from "../../context/FlatContext";
-import { BookApi, BudgetApi, FlatApi, FlatBudgetData } from "../../api/endpoints";
+import { BookApi, BudgetApi, BookBudgetData, FlatApi } from "../../api/endpoints";
 import { apiErrorMessage } from "../../api/client";
 import { Book, Expense, FlatReport } from "../../types";
 import { Palette, colorForCategories } from "../../theme/colors";
@@ -52,32 +52,51 @@ export default function HomeTabScreen() {
 
   const [books, setBooks] = useState<Book[] | null>(null);
   const [expenses, setExpenses] = useState<Expense[] | null>(null);
-  const [budgetData, setBudgetData] = useState<FlatBudgetData | null>(null);
+  const [budgetData, setBudgetData] = useState<BookBudgetData | null>(null);
   const [showSetBudgetModal, setShowSetBudgetModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const initializedSelection = useRef(false);
 
+  const loadBudgetForBook = useCallback(async (bId: number | null) => {
+    if (!bId) {
+      setBudgetData(null);
+      return;
+    }
+    try {
+      const budgetRes = await BudgetApi.get(bId);
+      setBudgetData(budgetRes.data);
+    } catch (err) {
+      setBudgetData(null);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
-      const [booksRes, expensesRes, budgetRes] = await Promise.all([
+      const [booksRes, expensesRes] = await Promise.all([
         BookApi.list(flatId),
         FlatApi.expenses(flatId),
-        BudgetApi.get(flatId).catch(() => ({ data: null })),
       ]);
       setBooks(booksRes.data);
       setExpenses(expensesRes.data);
-      if (budgetRes?.data) setBudgetData(budgetRes.data);
 
+      let targetBookId = selectedBookId;
       if (!initializedSelection.current) {
         const openBook = booksRes.data.find((b) => b.status === "OPEN");
-        setSelectedBookId(openBook?.id ?? null);
+        targetBookId = openBook?.id ?? booksRes.data[0]?.id ?? null;
+        setSelectedBookId(targetBookId);
         initializedSelection.current = true;
+      }
+
+      if (targetBookId) {
+        await loadBudgetForBook(targetBookId);
+      } else {
+        setBudgetData(null);
       }
     } catch (err) {
       console.warn(apiErrorMessage(err));
     }
-  }, [flatId]);
+  }, [flatId, selectedBookId, loadBudgetForBook]);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,6 +133,12 @@ export default function HomeTabScreen() {
       color: categoryColors.get(c.category) ?? colors.accent,
     })) ?? [];
 
+  function handleBookChange(bookId: number | null) {
+    setSelectedBookId(bookId);
+    const targetId = bookId ?? openBook?.id ?? books?.[0]?.id ?? null;
+    loadBudgetForBook(targetId);
+  }
+
   function handleAddExpense() {
     if (openBook) {
       navigation.navigate("AddExpense", { bookId: openBook.id, flatId });
@@ -145,7 +170,7 @@ export default function HomeTabScreen() {
               <Text style={[styles.addBookBtnText, { color: colors.accent }]}>Book</Text>
             </TouchableOpacity>
             {hasBooks && (
-              <FilterDropdown label="Book" icon="book" value={selectedBookId} options={bookOptions} onChange={setSelectedBookId} />
+              <FilterDropdown label="Book" icon="book" value={selectedBookId} options={bookOptions} onChange={handleBookChange} />
             )}
           </View>
         </View>
@@ -192,19 +217,19 @@ export default function HomeTabScreen() {
           </GlassCard>
         )}
 
-        {/* ── Monthly Household Budget Card ── */}
+        {/* ── Book Budget Card ── */}
         {budgetData && (
           <GlassCard style={styles.budgetCard}>
             <View style={styles.budgetHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <View style={styles.budgetTitleRow}>
                   <Text style={{ fontSize: 18 }}>📊</Text>
                   <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
-                    Monthly Flat Budget
+                    Book Budget
                   </Text>
                 </View>
                 <Text style={[styles.budgetSub, { color: colors.textSecondary }]}>
-                  Household limits & overspending alerts
+                  {selectedBook ? `Budget for "${selectedBook.name}"` : "Category limits & overspending alerts"}
                 </Text>
               </View>
 
@@ -392,7 +417,7 @@ export default function HomeTabScreen() {
       {showSetBudgetModal && (
         <SetBudgetModal
           visible={showSetBudgetModal}
-          flatId={flatId}
+          bookId={selectedBookId ?? openBook?.id ?? 0}
           existingBudgets={budgetData?.categories ?? []}
           onClose={() => setShowSetBudgetModal(false)}
           onSaved={load}
