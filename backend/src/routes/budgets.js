@@ -28,7 +28,7 @@ async function checkBookMember(bookId, userId) {
 }
 
 // GET /api/books/:bookId/budget
-router.get("/:bookId/budget", requireAuth, async (req, res) => {
+router.get("/books/:bookId/budget", requireAuth, async (req, res) => {
   try {
     const bookId = Number(req.params.bookId);
     const flatId = await checkBookMember(bookId, req.userId);
@@ -138,7 +138,7 @@ router.get("/:bookId/budget", requireAuth, async (req, res) => {
 });
 
 // POST /api/books/:bookId/budget
-router.post("/:bookId/budget", requireAuth, async (req, res) => {
+router.post("/books/:bookId/budget", requireAuth, async (req, res) => {
   try {
     const bookId = Number(req.params.bookId);
     const flatId = await checkBookMember(bookId, req.userId);
