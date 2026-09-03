@@ -116,9 +116,6 @@ export default function HomeTabScreen() {
     setRefreshing(false);
   }
 
-  const openBook = books?.find((b) => b.status === "OPEN") ?? null;
-  const selectedBook = books?.find((b) => b.id === selectedBookId) ?? null;
-
   const filteredExpenses = useMemo(() => {
     if (!expenses) return null;
     return selectedBookId == null ? expenses : expenses.filter((e) => e.bookId === selectedBookId);
