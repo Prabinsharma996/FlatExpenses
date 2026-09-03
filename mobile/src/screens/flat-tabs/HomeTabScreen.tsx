@@ -58,6 +58,11 @@ export default function HomeTabScreen() {
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const initializedSelection = useRef(false);
 
+  const openBook = books?.find((b) => b.status === "OPEN") ?? null;
+  const selectedBook = books?.find((b) => b.id === selectedBookId) ?? null;
+  const activeBook = selectedBook ?? openBook ?? (books && books.length > 0 ? books[0] : null);
+  const activeBookId = activeBook?.id ?? null;
+
   const loadBudgetForBook = useCallback(async (bId: number | null) => {
     if (!bId) {
       setBudgetData(null);
@@ -67,7 +72,7 @@ export default function HomeTabScreen() {
       const budgetRes = await BudgetApi.get(bId);
       setBudgetData(budgetRes.data);
     } catch (err) {
-      setBudgetData(null);
+      console.warn("Failed to fetch budget:", err);
     }
   }, []);
 
@@ -80,18 +85,19 @@ export default function HomeTabScreen() {
       setBooks(booksRes.data);
       setExpenses(expensesRes.data);
 
-      let targetBookId = selectedBookId;
-      if (!initializedSelection.current) {
-        const openBook = booksRes.data.find((b) => b.status === "OPEN");
-        targetBookId = openBook?.id ?? booksRes.data[0]?.id ?? null;
-        setSelectedBookId(targetBookId);
+      const openB = booksRes.data.find((b) => b.status === "OPEN");
+      let targetId = selectedBookId;
+      if (!initializedSelection.current && openB) {
+        targetId = openB.id;
+        setSelectedBookId(openB.id);
         initializedSelection.current = true;
       }
+      if (!targetId && booksRes.data.length > 0) {
+        targetId = openB?.id ?? booksRes.data[0].id;
+      }
 
-      if (targetBookId) {
-        await loadBudgetForBook(targetBookId);
-      } else {
-        setBudgetData(null);
+      if (targetId) {
+        await loadBudgetForBook(targetId);
       }
     } catch (err) {
       console.warn(apiErrorMessage(err));
@@ -218,7 +224,7 @@ export default function HomeTabScreen() {
         )}
 
         {/* ── Book Budget Card ── */}
-        {budgetData && (
+        {hasBooks && activeBook && (
           <GlassCard style={styles.budgetCard}>
             <View style={styles.budgetHeader}>
               <View style={{ flex: 1 }}>
@@ -229,7 +235,7 @@ export default function HomeTabScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.budgetSub, { color: colors.textSecondary }]}>
-                  {selectedBook ? `Budget for "${selectedBook.name}"` : "Category limits & overspending alerts"}
+                  {`Budget for "${activeBook.name}"`}
                 </Text>
               </View>
 
@@ -243,99 +249,60 @@ export default function HomeTabScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Smart Alert Banners */}
-            {budgetData.alerts.length > 0 && (
-              <View style={styles.alertStack}>
-                {budgetData.alerts.map((alertText, idx) => (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.alertBanner,
-                      {
-                        backgroundColor: alertText.includes("🚨")
-                          ? "rgba(255, 71, 87, 0.15)"
-                          : "rgba(255, 165, 2, 0.15)",
-                        borderColor: alertText.includes("🚨") ? colors.danger : "#FFA502",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.alertText,
-                        { color: alertText.includes("🚨") ? colors.danger : "#FFA502" },
-                      ]}
-                    >
-                      {alertText}
-                    </Text>
+            {budgetData ? (
+              <>
+                {/* Smart Alert Banners */}
+                {budgetData.alerts.length > 0 && (
+                  <View style={styles.alertStack}>
+                    {budgetData.alerts.map((alertText, idx) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.alertBanner,
+                          {
+                            backgroundColor: alertText.includes("🚨")
+                              ? "rgba(255, 71, 87, 0.15)"
+                              : "rgba(255, 165, 2, 0.15)",
+                            borderColor: alertText.includes("🚨") ? colors.danger : "#FFA502",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.alertText,
+                            { color: alertText.includes("🚨") ? colors.danger : "#FFA502" },
+                          ]}
+                        >
+                          {alertText}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            )}
+                )}
 
-            {/* Total Budget Progress Bar */}
-            <View style={styles.totalProgressBox}>
-              <View style={styles.progressTextRow}>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                  Spent: <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>₹{budgetData.totalSpent.toLocaleString()}</Text>
-                </Text>
-                <Text style={[styles.progressValue, { color: budgetData.totalPercentUsed >= 100 ? colors.danger : colors.accent }]}>
-                  Limit: ₹{budgetData.totalLimit.toLocaleString()} ({budgetData.totalPercentUsed}%)
-                </Text>
-              </View>
-
-              <View style={[styles.track, { marginTop: 6, height: 10, borderRadius: 5 }]}>
-                <View
-                  style={[
-                    styles.fill,
-                    {
-                      height: 10,
-                      borderRadius: 5,
-                      width: `${Math.min(budgetData.totalPercentUsed, 100)}%`,
-                      backgroundColor:
-                        budgetData.totalPercentUsed >= 100
-                          ? colors.danger
-                          : budgetData.totalPercentUsed >= 80
-                          ? "#FFA502"
-                          : colors.accent,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Category Breakdown list */}
-            <View style={styles.categoryBudgetList}>
-              {budgetData.categories.map((c) => (
-                <View key={c.category} style={styles.catBudgetRow}>
-                  <View style={styles.catBudgetHeader}>
-                    <Text style={[styles.catName, { color: colors.textPrimary }]}>{c.category}</Text>
-                    <Text
-                      style={[
-                        styles.catAmount,
-                        {
-                          color:
-                            c.status === "OVER"
-                              ? colors.danger
-                              : c.status === "WARNING"
-                              ? "#FFA502"
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      ₹{c.spent.toLocaleString()} / ₹{c.amountLimit.toLocaleString()} ({c.percentUsed}%)
+                {/* Total Budget Progress Bar */}
+                <View style={styles.totalProgressBox}>
+                  <View style={styles.progressTextRow}>
+                    <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                      Spent: <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>₹{budgetData.totalSpent.toLocaleString()}</Text>
+                    </Text>
+                    <Text style={[styles.progressValue, { color: budgetData.totalPercentUsed >= 100 ? colors.danger : colors.accent }]}>
+                      Limit: ₹{budgetData.totalLimit.toLocaleString()} ({budgetData.totalPercentUsed}%)
                     </Text>
                   </View>
 
-                  <View style={styles.catTrack}>
+                  <View style={[styles.track, { marginTop: 6, height: 10, borderRadius: 5 }]}>
                     <View
                       style={[
-                        styles.catFill,
+                        styles.fill,
                         {
-                          width: `${Math.min(c.percentUsed, 100)}%`,
+                          height: 10,
+                          borderRadius: 5,
+                          width: `${Math.min(budgetData.totalPercentUsed, 100)}%`,
                           backgroundColor:
-                            c.status === "OVER"
+                            budgetData.totalPercentUsed >= 100
                               ? colors.danger
-                              : c.status === "WARNING"
+                              : budgetData.totalPercentUsed >= 80
                               ? "#FFA502"
                               : colors.accent,
                         },
@@ -343,8 +310,55 @@ export default function HomeTabScreen() {
                     />
                   </View>
                 </View>
-              ))}
-            </View>
+
+                {/* Category Breakdown list */}
+                <View style={styles.categoryBudgetList}>
+                  {budgetData.categories.map((c) => (
+                    <View key={c.category} style={styles.catBudgetRow}>
+                      <View style={styles.catBudgetHeader}>
+                        <Text style={[styles.catName, { color: colors.textPrimary }]}>{c.category}</Text>
+                        <Text
+                          style={[
+                            styles.catAmount,
+                            {
+                              color:
+                                c.status === "OVER"
+                                  ? colors.danger
+                                  : c.status === "WARNING"
+                                  ? "#FFA502"
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          ₹{c.spent.toLocaleString()} / ₹{c.amountLimit.toLocaleString()} ({c.percentUsed}%)
+                        </Text>
+                      </View>
+
+                      <View style={styles.catTrack}>
+                        <View
+                          style={[
+                            styles.catFill,
+                            {
+                              width: `${Math.min(c.percentUsed, 100)}%`,
+                              backgroundColor:
+                                c.status === "OVER"
+                                  ? colors.danger
+                                  : c.status === "WARNING"
+                                  ? "#FFA502"
+                                  : colors.accent,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={{ color: colors.textSecondary, fontSize: 13, marginVertical: 8 }}>
+                Loading budget details for "{activeBook.name}"...
+              </Text>
+            )}
           </GlassCard>
         )}
 
@@ -414,10 +428,10 @@ export default function HomeTabScreen() {
         </TouchableOpacity>
       )}
 
-      {showSetBudgetModal && (
+      {showSetBudgetModal && activeBookId && (
         <SetBudgetModal
           visible={showSetBudgetModal}
-          bookId={selectedBookId ?? openBook?.id ?? 0}
+          bookId={activeBookId}
           existingBudgets={budgetData?.categories ?? []}
           onClose={() => setShowSetBudgetModal(false)}
           onSaved={load}
